@@ -56,6 +56,8 @@ contract ConfidentialUSDC is IConfidentialUSDC, ReentrancyGuard {
     error UnauthorizedUseOfEncryptedAmount(euint256 amount, address user);
     error UnknownUnwrapRequest(bytes32 requestId);
     error UnwrapBurnFailed(bytes32 requestId);
+    error UnauthorizedSpender(address from, address spender);
+    error InvalidOperator(address operator);
 
     // ====================================================================
     // Storage
@@ -75,6 +77,11 @@ contract ConfidentialUSDC is IConfidentialUSDC, ReentrancyGuard {
     }
 
     mapping(bytes32 requestId => PendingUnwrap) private _pendingUnwraps;
+
+    /// @dev `_operatorUntil[holder][operator]` is the unix timestamp through
+    ///      which `operator` may move tokens on behalf of `holder`. Zero or
+    ///      a past value means "not currently authorized".
+    mapping(address holder => mapping(address operator => uint48)) private _operatorUntil;
 
     // ====================================================================
     // Constructor
@@ -265,6 +272,46 @@ contract ConfidentialUSDC is IConfidentialUSDC, ReentrancyGuard {
             revert UnauthorizedUseOfEncryptedAmount(amount, msg.sender);
         }
         return _transfer(msg.sender, to, amount);
+    }
+
+    // ====================================================================
+    // Operator pattern (EIP-7984)
+    // ====================================================================
+
+    function setOperator(address operator, uint48 until) external {
+        if (operator == address(0)) revert InvalidOperator(operator);
+        _operatorUntil[msg.sender][operator] = until;
+        emit OperatorSet(msg.sender, operator, until);
+    }
+
+    function isOperator(address holder, address operator) public view returns (bool) {
+        return _operatorUntil[holder][operator] > block.timestamp;
+    }
+
+    function confidentialTransferFrom(
+        address from,
+        address to,
+        externalEuint256 encryptedAmount,
+        bytes calldata inputProof
+    ) external nonReentrant returns (euint256 transferred) {
+        if (from != msg.sender && !isOperator(from, msg.sender)) {
+            revert UnauthorizedSpender(from, msg.sender);
+        }
+        return _transfer(from, to, Nox.fromExternal(encryptedAmount, inputProof));
+    }
+
+    function confidentialTransferFrom(
+        address from,
+        address to,
+        euint256 amount
+    ) external nonReentrant returns (euint256 transferred) {
+        if (from != msg.sender && !isOperator(from, msg.sender)) {
+            revert UnauthorizedSpender(from, msg.sender);
+        }
+        if (!Nox.isAllowed(amount, msg.sender)) {
+            revert UnauthorizedUseOfEncryptedAmount(amount, msg.sender);
+        }
+        return _transfer(from, to, amount);
     }
 
     function _transfer(address from, address to, euint256 amount) internal returns (euint256 transferred) {

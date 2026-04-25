@@ -120,6 +120,42 @@ Error: contract was not deployed
 
 ---
 
+## [2026-04-25 F3] Market.placeBet → cUSDC.confidentialTransferFrom reverts NotAllowed on the bet handle
+
+**Repro:**
+
+```bash
+cd /Users/mac/darkodds
+forge test --root contracts --match-test test_PlaceBet_HappyPath_Yes
+```
+
+**Symptom:**
+
+```
+[FAIL: NotAllowed(0x0000007a6923011d... <bet handle>, 0x5991... <cUSDC address>)] test_PlaceBet_HappyPath_Yes
+```
+
+**Root cause:** Market obtained transient ACL on the bet handle via `Nox.fromExternal(handle, proof)` — but transient ACL is keyed by `msg.sender` at grant time. When Market then calls `cUSDC.confidentialTransferFrom(user, market, betHandle)`, cUSDC's internal `Nox.safeSub(userBalance, betHandle)` is invoked against NoxCompute. `msg.sender` at that NoxCompute call frame is **cUSDC**, not Market. cUSDC has no ACL on `betHandle`, NoxCompute reverts.
+**Fix:** Add `Nox.allowTransient(betHandle, confidentialUSDC)` immediately after `Nox.fromExternal` in `Market.placeBet`. This grants cUSDC its own transient ACL on the handle, scoped to the same transaction. All 28 Market tests pass after the fix.
+**Time to fix:** ~10 min once the failure mode was understood (had to trace cross-contract msg.sender propagation through NoxCompute).
+**Tags:** #contracts #nox
+
+---
+
+## [2026-04-25 F3] Nox.allowPublicDecryption reverts on already-public handles
+
+**Repro:** Call `Nox.allowPublicDecryption(handle)` where `handle = Nox.toEuint256(0)`.
+**Symptom:** `INoxCompute.PublicHandleACLForbidden()`.
+**Root cause:** `Nox.toEuint256(0)` calls `wrapAsPublicHandle` which produces a handle whose attributes byte has bit 0 unset (= public). Public handles carry no ACL by design; calling `allowPublicDecryption` on them is rejected. The Nox SDK has `_allowIfNotPublic` for the `allow` / `allowThis` / `allowTransient` family (silent skip on public) but does NOT have an equivalent for `allowPublicDecryption`.
+**Fix:** Two patches in `Market.sol`:
+
+1. `initialize` skips `allowPublicDecryption` on the initial-zero published handles (they're already public).
+2. `_publishBatchInternal` checks `HandleUtils.isPublicHandle(...)` before calling `allowPublicDecryption` on `Nox.add` results — the empty-batch case can produce a public-handle output.
+   **Time to fix:** ~5 min.
+   **Tags:** #contracts #nox
+
+---
+
 ## [2026-04-25 P0-retry] healthcheck — `@iexec-nox/handle` does not export its network-config map
 
 **Repro:** Inspect `node_modules/@iexec-nox/handle/src/index.ts`.

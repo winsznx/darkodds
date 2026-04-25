@@ -2,17 +2,29 @@
   "chainId": 421614,
   "contracts": {
     "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
-    "ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
+    "ConfidentialUSDC": "0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
+    "MarketImplementation": "0x8f16021bf370eca1bd94210a318416b9116f0a2e",
+    "MarketRegistry": "0xec13c614f817a97462ca669473f28a3e6aacaafb",
+    "Market_0": "0x60a1e4f30b02e78c0dc9bd28ac468052da01279e",
     "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
-  "deployedAt": 1777124722,
+  "deployedAt": 1777126559,
   "txs": {
-    "TestUSDC": "0x84c7322e733ecd3052c0268c61964c1a4b6de7b431008eb469c07c4faeacfb75",
-    "ConfidentialUSDC": "0x867fefc5df10f21ab0465f5229697026206994ef7b07424768ccb9408927813c"
+    "ConfidentialUSDC": "0x224cc1b6d643354810e6a7f590b4ebdf41c854108d950e9aa82c4cffddcc0f38",
+    "MarketImplementation": "0x2250d28af6a51c4b648d670610468f933b5ba0d889ef0fc675d40e70fbc47485",
+    "MarketRegistry": "0x22539514b2eb59120153af3763d3f3e33c638a20e4220aa6adacba4979ca8b4e",
+    "Market_0_create": "0x603e588cec52f8d6476b740e5da5d513a4e322e37b702be89940124ab5a0bb32"
   },
-  "blockscout": {
-    "TestUSDC": "https://arbitrum-sepolia.blockscout.com/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e",
-    "ConfidentialUSDC": "https://arbitrum-sepolia.blockscout.com/address/0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372"
+  "arbiscan": {
+    "TestUSDC": "https://sepolia.arbiscan.io/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e",
+    "ConfidentialUSDC": "https://sepolia.arbiscan.io/address/0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
+    "MarketImplementation": "https://sepolia.arbiscan.io/address/0x8f16021bf370eca1bd94210a318416b9116f0a2e",
+    "MarketRegistry": "https://sepolia.arbiscan.io/address/0xec13c614f817a97462ca669473f28a3e6aacaafb",
+    "Market_0": "https://sepolia.arbiscan.io/address/0x60a1e4f30b02e78c0dc9bd28ac468052da01279e"
+  },
+  "notes": {
+    "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
+    "f2_legacy_note": "F2's ConfidentialUSDC v1 (lacking the operator pattern) is superseded by v2 above. F2 wrap/unwrap continues to work on the legacy address but Market integration requires v2."
   }
 }

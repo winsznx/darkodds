@@ -432,6 +432,87 @@ contract ConfidentialUSDCTest is Test {
     }
 
     // ====================================================================
+    // Operator pattern (F3 prerequisite — Market needs to pull cUSDC via transferFrom)
+    // ====================================================================
+
+    function test_SetOperator_HappyPath() public {
+        uint48 until = uint48(block.timestamp + 1 hours);
+        vm.prank(alice);
+        cusdc.setOperator(bob, until);
+        assertTrue(cusdc.isOperator(alice, bob));
+    }
+
+    function test_SetOperator_RevertsOnZero() public {
+        vm.expectRevert(abi.encodeWithSelector(ConfidentialUSDC.InvalidOperator.selector, address(0)));
+        vm.prank(alice);
+        cusdc.setOperator(address(0), uint48(block.timestamp + 1 hours));
+    }
+
+    function test_IsOperator_FalseWhenExpired() public {
+        uint48 until = uint48(block.timestamp + 1 hours);
+        vm.prank(alice);
+        cusdc.setOperator(bob, until);
+        vm.warp(uint256(until) + 1);
+        assertFalse(cusdc.isOperator(alice, bob));
+    }
+
+    function test_SetOperator_Revoke() public {
+        vm.startPrank(alice);
+        cusdc.setOperator(bob, uint48(block.timestamp + 1 hours));
+        cusdc.setOperator(bob, 0);
+        vm.stopPrank();
+        assertFalse(cusdc.isOperator(alice, bob));
+    }
+
+    function test_TransferFrom_AsOperator_WithProof() public {
+        _wrapForUser(alice, DEPOSIT_AMOUNT);
+
+        vm.prank(alice);
+        cusdc.setOperator(bob, uint48(block.timestamp + 1 hours));
+
+        // bob (operator) builds an externally-encrypted amount and pulls from alice → bob.
+        (externalEuint256 amtHandle, bytes memory amtProof) = _mintHandleWithProof(bob, address(cusdc));
+
+        vm.prank(bob);
+        euint256 transferred = cusdc.confidentialTransferFrom(alice, bob, amtHandle, amtProof);
+
+        bytes32 transferredId = euint256.unwrap(transferred);
+        assertTrue(noxCompute.isAllowed(transferredId, alice), "alice missing transferred ACL");
+        assertTrue(noxCompute.isAllowed(transferredId, bob), "bob missing transferred ACL");
+    }
+
+    function test_TransferFrom_AsSender_WithProof() public {
+        // No operator approval needed when from == msg.sender.
+        _wrapForUser(alice, DEPOSIT_AMOUNT);
+        (externalEuint256 amtHandle, bytes memory amtProof) = _mintHandleWithProof(alice, address(cusdc));
+        vm.prank(alice);
+        cusdc.confidentialTransferFrom(alice, bob, amtHandle, amtProof);
+    }
+
+    function test_TransferFrom_RevertsOnUnauthorizedSpender() public {
+        _wrapForUser(alice, DEPOSIT_AMOUNT);
+        // bob has no operator approval from alice.
+        (externalEuint256 amtHandle, bytes memory amtProof) = _mintHandleWithProof(bob, address(cusdc));
+        vm.expectRevert(abi.encodeWithSelector(ConfidentialUSDC.UnauthorizedSpender.selector, alice, bob));
+        vm.prank(bob);
+        cusdc.confidentialTransferFrom(alice, bob, amtHandle, amtProof);
+    }
+
+    function test_TransferFrom_RevertsAfterOperatorExpiry() public {
+        _wrapForUser(alice, DEPOSIT_AMOUNT);
+        uint48 until = uint48(block.timestamp + 1 hours);
+        vm.prank(alice);
+        cusdc.setOperator(bob, until);
+
+        vm.warp(uint256(until) + 1);
+
+        (externalEuint256 amtHandle, bytes memory amtProof) = _mintHandleWithProof(bob, address(cusdc));
+        vm.expectRevert(abi.encodeWithSelector(ConfidentialUSDC.UnauthorizedSpender.selector, alice, bob));
+        vm.prank(bob);
+        cusdc.confidentialTransferFrom(alice, bob, amtHandle, amtProof);
+    }
+
+    // ====================================================================
     // Fuzz
     // ====================================================================
 

@@ -6,6 +6,46 @@ Format per §0.2.
 
 ---
 
+## [2026-04-25 F3] ConfidentialUSDC ABI extended with EIP-7984 operator pattern — F2 deployment superseded
+
+**Expected (per F2 PRD §5.1):** ConfidentialUSDC ships with wrap/unwrap/confidentialTransfer; F2 considered "complete".
+**Actual (implementation):** F3's `Market.placeBet` needs to pull cUSDC from the user via the operator/transferFrom pattern (user calls `cUSDC.setOperator(market, until)` once, Market then calls `cUSDC.confidentialTransferFrom(user, market, amount)` per bet). This surface was missing from F2 — `IERC7984` only declared `confidentialTransfer` (caller-side), and the deployed contract lacked `setOperator` / `isOperator` / `confidentialTransferFrom`. F3 extends both the `IERC7984` interface and the implementation with these EIP-7984-canonical methods, then re-deploys cUSDC ("v2") on Arb Sepolia. The F2 deployment at `0xf9f3A9F5F3a2F4138FB680D5cDfa635FD4312372` is now legacy — wrap/unwrap still works there but Market integration requires the v2 address `0xaf1ACDf0B031080d4FAd75129E74D89eAd450c4D`.
+**Reason:** F3 cannot run without operator-based debit; the EIP-7984 spec includes this surface and our F2 cut left it on the floor. Better to extend honestly here than to invent a workaround.
+**Impact:** Existing F2 wrap/unwrap tests still pass on the v1 contract. v2 contains all v1 functionality plus the operator surface. Re-deploy was 0.001 ETH gas. F2's deployments JSON entry is preserved under `notes.f2_legacy_ConfidentialUSDC`.
+**Decision:** Proceed with v2. Future phases bind to the v2 address.
+
+---
+
+## [2026-04-25 F3] Market.placeBet must `Nox.allowTransient` cUSDC before delegating transferFrom
+
+**Expected (intuition):** `Nox.fromExternal(handle, proof)` grants the calling contract transient ACL. Market should be able to pass that handle to cUSDC and have cUSDC's internal `Nox.safeSub` work.
+**Actual (implementation):** Markets must additionally call `Nox.allowTransient(betAmount, address(cUSDC))` before invoking `cUSDC.confidentialTransferFrom`. Without this, NoxCompute reverts with `NotAllowed(handle, cUSDC)` — because `msg.sender` of the Nox call from inside cUSDC is cUSDC, not Market. Transient ACL on the original `fromExternal` is per-tx, but it's keyed by _which contract_ called Nox at grant time — a downstream contract participating in the same tx needs its own grant.
+**Reason:** This is correct Nox ACL semantics; we just hadn't traced it through cross-contract handle passing. Nox's docs do not explicitly document the cross-contract handle-passing pattern.
+**Impact:** One-line fix in `Market.placeBet`. All 28 Market tests + smoke pass cleanly. Documented in `feedback.md` as a Nox DX gap worth flagging upstream.
+**Decision:** Add `Nox.allowTransient(betAmount, confidentialUSDC)` immediately after `Nox.fromExternal`.
+
+---
+
+## [2026-04-25 F3] `Nox.toEuint256(0)` produces a _public_ handle — `allowPublicDecryption` reverts on it
+
+**Expected:** Calling `Nox.allowPublicDecryption` on the initial published-pool handles in `Market.initialize` would mark them publicly decryptable.
+**Actual:** Reverts with `INoxCompute.PublicHandleACLForbidden()` — `Nox.toEuint256(0)` calls `wrapAsPublicHandle` which produces a handle with bit 0 of the attributes byte unset (= already public). Calling `allowPublicDecryption` on an already-public handle is forbidden.
+**Reason:** Nox's ACL state machine: public handles carry no ACL by design and have no use for explicit grants. The `allowPublicDecryption` mutator is reserved for unique (private) handles being demoted to public.
+**Impact:** Two tweaks: (1) `initialize` skips the `allowPublicDecryption` calls on the initial-zero handles (they're already public). (2) `_publishBatchInternal` checks `HandleUtils.isPublicHandle(...)` before calling `allowPublicDecryption` on the `Nox.add` result — the empty-batch case can produce a public-handle output if both inputs were public.
+**Decision:** Apply the conditional pattern. Logged in `feedback.md` as a Nox DX wrinkle (would benefit from `allowPublicDecryptionIfNotPublic` as a no-op-on-public variant in the SDK, mirroring the existing `_allowIfNotPublic` pattern).
+
+---
+
+## [2026-04-25 F3] Market state cardinality — one bet per user per side per market (v1)
+
+**Expected (per PRD §5.3):** `placeBet(side, handle, proof)` — cardinality unspecified.
+**Actual (implementation):** Per the F3 prompt: "Validate user has not already bet on this side (one bet per user per side per market for v1)". Market.placeBet reverts with `AlreadyBetThisSide` if the user already has a non-zero bet handle on the chosen side. Users may still bet on both sides (one YES + one NO).
+**Reason:** Simpler claim accounting in F4 — single position per side keeps `claimWinnings` straightforward. Cumulative same-side bets via `Nox.add(existingBet, newBet)` would also work but adds complexity that isn't load-bearing for the demo.
+**Impact:** Each user is capped at two bets per market (one YES, one NO). F4 may relax this once the claim path is wired and a "merge bets" semantic is decided — separate DRIFT entry if so.
+**Decision:** v1 keeps the per-side-per-user cap.
+
+---
+
 ## [2026-04-25 F2] Active PRD bumped v1.2 → v1.3 — ConfidentialUSDC is Nox-native, not OZCC
 
 **Expected (per PRD v1.2 §5.1):** Wrap OpenZeppelin Confidential Contracts' `ERC7984ERC20Wrapper` as the base.

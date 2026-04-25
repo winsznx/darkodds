@@ -268,3 +268,88 @@ Above the PRD's ≥85% bar on lines/statements/functions. 28 unit tests + 1 fork
 3. **Fix `TestHelper.sol` import path** from `forge-std/src/Vm.sol` to `forge-std/Vm.sol`.
 4. **Document the license boundary** loudly. Easy mistake to import from `mock/` thinking it's safe for production.
 5. **Wider `encryptInput` solidityType menu** — at minimum `uint64` and `uint128`.
+
+---
+
+## Phase F3 — Market core live on Arbitrum Sepolia
+
+### Deployment
+
+| Contract                                | Address                                                                                                                        | Verified                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| TestUSDC (reused from F2)               | [`0xf02C982D19184c11b86BC34672441C45fBF0f93E`](https://sepolia.arbiscan.io/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e) | ✅                        |
+| ConfidentialUSDC v2 (operator pattern)  | [`0xaF1ACDf0B031080D4fAd75129E74d89eaD450c4D`](https://sepolia.arbiscan.io/address/0xaf1acdf0b031080d4fad75129e74d89ead450c4d) | ✅                        |
+| Market implementation                   | [`0x8F16021bf370eCA1Bd94210a318416b9116F0a2E`](https://sepolia.arbiscan.io/address/0x8f16021bf370eca1bd94210a318416b9116f0a2e) | ✅                        |
+| MarketRegistry                          | [`0xeC13c614f817A97462ca669473f28A3E6aAcaAFB`](https://sepolia.arbiscan.io/address/0xec13c614f817a97462ca669473f28a3e6aacaafb) | ✅                        |
+| Market[0] (test market, EIP-1167 clone) | [`0x60A1E4f30B02E78c0DC9bD28Ac468052dA01279E`](https://sepolia.arbiscan.io/address/0x60a1e4f30b02e78c0dc9bd28ac468052da01279e) | ✅ (auto, bytecode match) |
+
+Market[0] question: "Will the next iExec mainnet announcement happen before June 15, 2026?" — admin-resolved, expires +14d.
+
+### Smoke run — bet → batch → publish round-trip
+
+| step                                      | latency     |
+| ----------------------------------------- | ----------- |
+| load deployment json                      | 0ms         |
+| ETH balance                               | 281ms       |
+| TestUSDC.mint                             | 3435ms      |
+| TestUSDC.approve                          | 2671ms      |
+| Nox encryptInput (wrap)                   | 1754ms      |
+| ConfidentialUSDC.wrap                     | 2909ms      |
+| cUSDC.setOperator                         | 2874ms      |
+| Nox encryptInput (bet)                    | 1349ms      |
+| Market.placeBet                           | 2694ms      |
+| **wait 60s batch interval**               | **65002ms** |
+| Market.publishBatch                       | 3073ms      |
+| Nox publicDecrypt(yesPoolPublishedHandle) | 1750ms      |
+| Nox decrypt(yesBet[user])                 | 1150ms      |
+| **total**                                 | **89661ms** |
+
+`yesPoolPublishedHandle` decrypted publicly to **`50_000_000`** (the bet, in 6-decimal tUSDC units). `yesBet[user]` decrypted to the same value via the user's persistent ACL. Both handles are different bytes32 — the user's bet handle is the original from `encryptInput`, while the public total is a fresh `Nox.add` result.
+
+### Architecture: lazy public decryption (PRD §6.2) is real
+
+The privacy primitive — bets accumulate in TEE-only batch handles, public running totals only update every 60s — is not just spec poetry, it's implemented and verified end-to-end:
+
+- `_yesPoolBatch` / `_noPoolBatch`: encrypted accumulators, ACL'd to Market only. `Nox.add(batch, bet)` per `placeBet`.
+- `_yesPoolPublished` / `_noPoolPublished`: encrypted running totals, made publicly decryptable on every `publishBatch`. The public's view of pool sizes lags individual bets by up to 60 seconds.
+- `BatchPublished(batchId, betsInBatch, timestamp)` event: count revealed, sizes never. Selective disclosure in action.
+
+### What worked beautifully in `@iexec-nox/nox-protocol-contracts` (continued from F2)
+
+1. **`Nox.add` preserves ACL inheritance.** Adding a public handle (initial zero) to a private handle (the bet amount) returns a private handle. After enough bets in a batch, the running batch handle is private. `publishBatch` then folds it into the public total via another `Nox.add`. Behavior was intuitive once we traced it.
+2. **`HandleUtils.isPublicHandle` is the right abstraction.** Lets the contract conditionally call `allowPublicDecryption` only when the handle is actually private — clean defensive guard against `PublicHandleACLForbidden` reverts.
+3. **EIP-1167 minimal proxies + Nox handles compose without surprises.** Each cloned Market has its own storage slots for encrypted handles; the `applicationContract` field in handle proofs binds correctly to the clone's address (not the implementation's). `Nox.allowThis` inside an initialized clone grants ACL to the clone.
+
+### What was friction in `@iexec-nox/nox-protocol-contracts` (F3-specific)
+
+1. **Cross-contract handle ACL is silent.** When Market calls `cUSDC.confidentialTransferFrom(user, market, betHandle)`, cUSDC's internal `Nox.safeSub(userBalance, betHandle)` reverts with `NotAllowed(betHandle, cUSDC)` — even though Market had transient ACL on `betHandle` from the upstream `Nox.fromExternal` call. The reason: NoxCompute's ACL check uses `msg.sender` from _its own_ call frame, which is cUSDC during the inner safeSub, not Market. The fix is `Nox.allowTransient(betHandle, address(cUSDC))` before delegating. **Suggestion:** the Nox docs should explicitly cover the cross-contract handle-passing pattern with a code snippet — every multi-contract dApp on Nox will hit this.
+2. **`allowPublicDecryption` reverts on already-public handles.** `Nox.toEuint256(0)` produces a public-by-construction handle (per `wrapAsPublicHandle` semantics — see F2 librarian research). Calling `allowPublicDecryption` on it throws `PublicHandleACLForbidden`. The Nox SDK already has `_allowIfNotPublic` (silent skip on public for `allow` / `allowThis` / `allowTransient`); a parallel `_allowPublicDecryptionIfNotPublic` would be a one-line addition that makes initialization patterns trivial. **Suggestion:** add it.
+3. **EIP-7984 operator surface absent from `ConfidentialTokenMock`.** iExec's reference token doesn't include `setOperator` / `confidentialTransferFrom`. Anyone building a real DeFi integration over Nox will need this and will roll their own. We added it to our cUSDC; would be cleaner upstream. **Suggestion:** include the operator pattern in the next iExec reference token.
+
+### Test coverage
+
+`forge coverage` on `src/`:
+
+| File                 | Lines      | Statements | Branches   | Funcs      |
+| -------------------- | ---------- | ---------- | ---------- | ---------- |
+| ConfidentialUSDC.sol | 94.64%     | 93.91%     | 75.00%     | 94.44%     |
+| Market.sol           | 97.22%     | 95.65%     | 82.61%     | 94.12%     |
+| MarketRegistry.sol   | 100.00%    | 100.00%    | 100.00%    | 100.00%    |
+| TestUSDC.sol         | 100.00%    | 100.00%    | n/a        | 100.00%    |
+| **Total**            | **91.02%** | **88.85%** | **81.40%** | **92.68%** |
+
+40/40 local tests + 2/2 fork tests pass. All four files clear the PRD's ≥85% bar on lines/statements/funcs.
+
+### MarketRegistry clone pattern: did handle-rebinding cause friction?
+
+No. EIP-1167 minimal proxies delegate every call to the implementation, including the storage slot writes for encrypted handles. Each clone gets its own storage. The `applicationContract` field encoded in Nox handle proofs is always the clone's address (since `msg.sender` during `Nox.fromExternal` is the clone, not the implementation). All ACL grants and proof validations are clone-scoped.
+
+The only initialization quirk: the Market template itself is initialised once during deploy (in our `Market.t.sol::test_Initialize_RawImplCanBeInitialized` test), which means a second call to `initialize` on the implementation reverts. This is fine — the implementation is never used as a proxy target by users. The clones are.
+
+### Encrypted-types arithmetic ergonomics from Solidity
+
+Adding two encrypted values is `Nox.add(handleA, handleB)` — looks like a regular library call, returns a new handle. Subtraction with the success bool is `Nox.safeSub(...)` returning `(ebool, euint256)`. Multiplication, comparison, conditional select — all single-line library calls.
+
+The only meaningful friction is mental: every TEE-output handle needs an explicit `Nox.allowThis(handle)` to keep using it later. Forgetting this leads to `NotAllowed` reverts on the next op. It's the encrypted-state equivalent of forgetting to free memory in C — annoying but learnable. Once the pattern is internalised, the code reads cleanly.
+
+The `confidentialTransferFrom` DX is identical to plain ERC-20 `transferFrom` modulo the encrypted amount handle — operator approval is a one-shot `setOperator(spender, until)` call (timestamp-based) instead of per-amount `approve`. We prefer this; it's cleaner for repeated bets in the same market session.

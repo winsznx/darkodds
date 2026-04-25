@@ -1,0 +1,3 @@
+# DarkOdds subgraph schema — populated in Phase F11 with public Market state.
+# Phase F1 ships an empty schema only; `graph codegen` is intentionally a no-op
+# until F11 wires datasources.

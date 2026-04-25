@@ -1,0 +1,5 @@
+specVersion: 1.3.0
+description: DarkOdds public-state indexer (skeleton — datasources defined in Phase F11)
+schema:
+  file: ./schema.graphql
+dataSources: []

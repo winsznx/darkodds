@@ -1,7 +1,43 @@
+# Dependencies
 node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Env
 .env
 .env.local
+**/.env
+**/.env.local
+
+# OS
 .DS_Store
+
+# Logs
 *.log
-.npm/
-.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Next.js
+**/.next/
+**/out/
+**/.vercel/
+**/next-env.d.ts.bak
+
+# Foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+contracts/foundry.lock
+
+# The Graph
+subgraph/build/
+subgraph/generated/
+
+# Husky
+.husky/_/
+
+# Editor
+.vscode/
+.idea/

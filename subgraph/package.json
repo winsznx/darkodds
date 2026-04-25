@@ -1,0 +1,14 @@
+{
+  "name": "subgraph",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DarkOdds public-state subgraph (skeleton — datasources land in Phase F11).",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2"
+  }
+}

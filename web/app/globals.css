@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+/*
+ * Local font hosting per PRD §7.1 — never next/font/google.
+ * Files live in /public/fonts/.
+ */
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/Fraunces-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Special Elite";
+  src: url("/fonts/SpecialElite-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Design tokens per PRD §7.1.
+ * Plumbing landed in F1; values are placeholders subject to F6 design pass.
+ * §7.1: "no rounded corners > 2px" — radius forced to 0 globally.
+ */
+:root {
+  --bg: #f5f1e8;
+  --bg-2: #ede7d8;
+  --fg: #0a0908;
+  --fg-mute: #4a4742;
+  --redaction: #0a0908;
+  --accent-yes: #1f5c3d;
+  --accent-no: #7a1e1e;
+  --accent-signal: #c49a00;
+  --border: rgba(10, 9, 8, 0.15);
+  --radius: 0px;
+}
+
+[data-theme="dark"] {
+  --bg: #0e0e0d;
+  --bg-2: #1a1a18;
+  --fg: #f5f1e8;
+  --fg-mute: #ada89e;
+  --redaction: #f5f1e8;
+  --accent-yes: #2d8159;
+  --accent-no: #b33a3a;
+  --accent-signal: #f4c430;
+  --border: rgba(245, 241, 232, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e0e0d;
+    --bg-2: #1a1a18;
+    --fg: #f5f1e8;
+    --fg-mute: #ada89e;
+    --redaction: #f5f1e8;
+    --accent-yes: #2d8159;
+    --accent-no: #b33a3a;
+    --accent-signal: #f4c430;
+    --border: rgba(245, 241, 232, 0.15);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-fg: var(--fg);
+  --color-fg-mute: var(--fg-mute);
+  --color-redaction: var(--redaction);
+  --color-accent-yes: var(--accent-yes);
+  --color-accent-no: var(--accent-no);
+  --color-accent-signal: var(--accent-signal);
+  --color-border: var(--border);
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-stamp: "Special Elite", Courier, monospace;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}

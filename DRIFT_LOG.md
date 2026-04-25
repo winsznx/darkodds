@@ -16,6 +16,79 @@ Format per §0.2.
 
 ---
 
+## [2026-04-25 F1] §11 F1 — `forge init --no-commit` flag does not exist in Foundry 1.6.0
+
+**Expected (per F1 prompt):** `forge init contracts --no-commit --no-git`
+**Actual (implementation):** Used `forge init contracts --use-parent-git`. Foundry 1.6.0 does not accept `--no-commit`; only `--commit` (opt-in) and `--no-git` exist. `--use-parent-git` lets the contracts project participate in the parent darkodds repo's git tracking instead of creating its own.
+**Reason:** Flag drift in Foundry. Verified by inspecting `forge init --help`.
+**Impact:** Functionally equivalent — no extra commit was made, no nested git repo was created.
+**Decision:** Proceed with `--use-parent-git`.
+
+---
+
+## [2026-04-25 F1] §4.2 — `contracts/` is NOT a pnpm workspace
+
+**Expected (per F1 prompt step 1):** `pnpm-workspace.yaml` declaring `contracts`, `web`, `subgraph`.
+**Actual (implementation):** Workspaces are `web` + `subgraph`. `contracts/` is a Foundry-only project consumed by the root `pnpm test:contracts` script (`forge test --root contracts`).
+**Reason:** Foundry projects do not use Node.js dependency management. Adding `contracts/` to pnpm-workspace would force creation of a `contracts/package.json` that has no real role and creates two competing dep systems for the same directory. Per §0.1, doc-correct is to keep them separate.
+**Impact:** None on observable behavior. Foundry's `forge install` continues to manage `contracts/lib/` (git submodules under the parent darkodds repo via `--use-parent-git`).
+**Decision:** Proceed.
+
+---
+
+## [2026-04-25 F1] §F1 — Tailwind v4 is CSS-first; `tailwind.config.ts` is intentionally minimal
+
+**Expected (per F1 prompt):** "Configure `tailwind.config.ts` to extend with placeholder design tokens from §7.1".
+**Actual (implementation):** Tokens live in `web/app/globals.css` under `@theme inline { ... }` per the Tailwind v4 idiom. `tailwind.config.ts` exists but only declares `content` paths — it does NOT redeclare tokens.
+**Reason:** Tailwind v4's official guidance is CSS-first config; `tailwind.config.ts` is a backward-compat surface, not the primary place for tokens. Duplicating tokens in JS would create two sources of truth.
+**Impact:** Phase F6 styles consume tokens via `var(--bg)` and the matching `bg-bg` Tailwind utility (auto-generated from `--color-bg`). Same DX as token-in-JS, single source.
+**Decision:** Proceed.
+
+---
+
+## [2026-04-25 F1] §F1 — `shadcn init` defaults conflict with PRD §7.1; partially undone
+
+**Expected (per F1 prompt):** "Configure shadcn/ui via `npx shadcn@latest init` — accept defaults that align with §7.1".
+**Actual (implementation):** Ran `shadcn@4.4.0 init -y --defaults --base base --no-monorepo`. The defaults DO NOT align with §7.1:
+
+1. shadcn injected `import { Geist } from "next/font/google"` into `app/layout.tsx` — directly violates §7.1's "locally host all fonts under `/public/fonts/`" rule.
+2. shadcn imported `tw-animate-css` and `shadcn/tailwind.css`, polluting `globals.css` with conflicting oklch palette, a competing `.dark` class (we use `[data-theme="dark"]`), and `--radius: 0.625rem` (§7.1 forbids rounded corners > 2px).
+3. shadcn added 7 runtime deps (`@base-ui/react`, `class-variance-authority`, `clsx`, `lucide-react`, `tailwind-merge`, `tw-animate-css`, `shadcn` itself) all with caret ranges — violates §15.3 exact-pin rule.
+4. shadcn generated `components/ui/button.tsx` and `lib/utils.ts` ahead of the F6 design pass.
+
+**Reason:** §0.1 ("docs win" / spec compliance) overrides the operator prompt's request. The shadcn defaults pre-impose decisions that §7.1 explicitly forbids.
+
+**Impact:** Reconciled by:
+
+- Restoring `app/layout.tsx` to local-fonts-only (no `next/font/google`).
+- Rewriting `app/globals.css` to PRD §7.1 tokens, with `--radius: 0px` and shadcn-conflicting blocks dropped.
+- Removing all shadcn-injected runtime deps from `web/package.json`.
+- Deleting `components/ui/button.tsx` and `lib/utils.ts` — F6 will hand-build per §7.3.
+- Keeping `web/components.json` (zero-cost marker) so `shadcn add <component>` is one command if F6 decides to use any specific shadcn component as a starting point. F6 will need to override the radius/font/palette before keeping anything shadcn outputs.
+  **Decision:** Proceed with reconciled state. F6 starts with no shadcn components in tree.
+
+---
+
+## [2026-04-25 F1] §15.2 — eslint pinned to 9.39.4 instead of latest 10.2.1
+
+**Expected (per §0.1):** "Latest stable, advisory-clean version".
+**Actual (implementation):** `eslint@9.39.4` (latest 9.x; npm `dist-tags.maintenance`). npm `dist-tags.latest` is 10.2.1.
+**Reason:** `eslint-config-next@16.2.4` and its bundled plugins (`eslint-plugin-import@2.32.0`, `eslint-plugin-jsx-a11y@6.10.2`, `eslint-plugin-react@7.37.5`) declare peer-dep ranges that cap at `^9`. Installing eslint 10 produces three `unmet peer eslint` warnings. Per §15.3 "advisory-clean", peer-mismatch is a real signal — pinning to 9.39.4 satisfies all peers cleanly.
+**Impact:** None on linting behavior. Re-evaluate when `eslint-config-next` ships a 10-compatible release (track upstream).
+**Decision:** Proceed on 9.39.4.
+
+---
+
+## [2026-04-25 F1] §F1 — Foundry `assertEq(1+1, 2)` ambiguity required explicit uint256 coercion
+
+**Expected (per F1 prompt step 2):** "trivial `test/Sanity.t.sol` that asserts `1 + 1 == 2`"
+**Actual (implementation):** Test reads `assertEq(uint256(1) + uint256(1), uint256(2))`. The literal `1` is `int_const` and forge-std's `assertEq` has overloads for `bool`, `uint256`, `int256`, `address`, `bytes32`, `string`, `bytes` — Solidity's argument-dependent lookup cannot pick a unique candidate.
+**Reason:** Solidity 0.8.34 + forge-std 1.16.0 overload resolution. Documented and well-known.
+**Impact:** None — test passes in 7.95ms.
+**Decision:** Proceed.
+
+---
+
 ## [2026-04-25 P0-retry] §11 P0 step 4/5 — SDK has no public network-config introspection
 
 **Expected (per PRD v1.2 §11 P0):** "Read the smart contract address used by the SDK's auto-config for Arbitrum Sepolia. Consult ... advanced-configuration for the documented introspection path. If the SDK doesn't expose this directly, log to BUG_LOG and infer from the SDK source."

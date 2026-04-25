@@ -21,7 +21,7 @@ contract MarketRegistry is IMarketRegistry, Ownable {
     error InvalidExpiry();
 
     address public marketImplementation;
-    address public confidentialUSDC;
+    address public immutable confidentialUSDC;
     address public resolutionOracle;
     uint256 public nextMarketId;
     mapping(uint256 id => address) public markets;

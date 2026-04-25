@@ -21,12 +21,17 @@
     "smoke:f3": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f3.ts'",
     "deploy:f4": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f4.ts'",
     "smoke:f4": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f4.ts'",
+    "deploy:multisig": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-multisig.ts'",
+    "deploy:f45": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f45.ts'",
+    "smoke:f45": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f45.ts'",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"
   },
   "dependencies": {
     "@iexec-nox/handle": "0.1.0-beta.10",
+    "@safe-global/api-kit": "4.1.0",
+    "@safe-global/protocol-kit": "7.1.0",
     "viem": "2.48.4"
   },
   "devDependencies": {

@@ -715,7 +715,11 @@ contract MarketTest is Test {
         vm.recordLogs();
         vm.prank(alice);
         bytes32 refundHandle = market.refundIfInvalid();
-        assertEq(refundHandle, prevYesBet);
+        // Post-F4.5 hardening: refund returns the cUSDC-emitted "actually
+        // transferred" encrypted handle, not the previously-stored bet
+        // handle. The two encode the same plaintext value but are distinct
+        // Nox handles — the contract refunds what was *actually* moved.
+        assertTrue(refundHandle != bytes32(0));
 
         // alice's yesBet is cleared.
         assertEq(euint256.unwrap(market.yesBet(alice)), bytes32(0));

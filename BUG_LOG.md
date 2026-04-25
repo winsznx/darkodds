@@ -220,3 +220,56 @@ forge test --root contracts --match-test test_PlaceBet_HappyPath_Yes
 **Fix:** Source-inspected `src/config/networks.ts:9-15` and mirrored the values as a `NOX_NETWORK` constant in `tools/healthcheck.ts`. The script's `nox-code` step will catch any future drift in the Nox protocol contract address (returns RED if bytecode missing); the `subgraph` step does the same for the subgraph URL.
 **Time to fix:** ~5 min (single source-grep).
 **Tags:** #sdk #dx
+
+---
+
+## [2026-04-25 F4.5] Slither 0.11.5 — UDVT line-mapping bug retains stale findings
+
+**Repro:**
+
+1. `cd contracts && forge clean && forge build --build-info --force --skip "./test/**" --skip "./script/**"`
+2. `slither . --filter-paths "lib|test|script" --json out.json`
+3. Inspect findings for `uninitialized-local`, `unused-return`, `immutable-states`.
+
+**Symptom:** Slither flags variables that the source explicitly initializes / captures / declares immutable. Specifically:
+
+- `Market.refundIfInvalid().betHandle` flagged as uninitialized despite `euint256 betHandle = euint256.wrap(bytes32(0));` at the declaration site.
+- `Market.placeBet` flagged for ignoring `confidentialTransferFrom` return despite `euint256 transferred = ...` capture.
+- `MarketRegistry.confidentialUSDC` flagged "should be immutable" despite already being declared `address public immutable`.
+
+**Root cause:** Slither 0.11.5 does not handle user-defined-value-type (`euint256`) variable declarations correctly in source-position resolution. The forge-produced AST is correct (`initialValue` set, `mutability: "immutable"` set) — verified by manual JSON inspection of `out/build-info/*.json`. Slither's own AST traversal misreads these.
+
+**Fix:** Documented as tooling false positive in `audits/slither-2026-04-25/summary.md`. No source change. Re-test after slither 0.11.6+.
+
+**Time to fix:** ~30 min spent diagnosing (initially suspected our config / cache / forge artifacts).
+**Tags:** #infra #tooling #slither
+
+---
+
+## [2026-04-25 F4.5] Safe execTransaction reverts GS013 when inner call would revert
+
+**Repro:** Construct a Safe tx whose `data` calls a function with the wrong selector / unauthorized owner / etc. Co-sign with two owners. Execute.
+
+**Symptom:** Safe contract reverts with `GS013` ("Safe transaction failed when gasPrice and safeTxGas were 0").
+
+**Root cause:** With `safeTxGas == 0` and `gasPrice == 0` (the SDK defaults), Safe v1.4.1 requires the inner tx to succeed. If the inner call reverts (e.g. our first attempt used a hand-computed function selector `0xc8df6c69` that did not match `setMarketImplementation(address)` = `0xb5c459b4`), Safe propagates as `GS013`. The actual revert reason is swallowed.
+
+**Fix:** Always use `viem.encodeFunctionData({abi, functionName, args})` instead of hand-composing selectors. For debugging GS013s, simulate the inner call via a direct `eth_call` from the Safe address to surface the real revert.
+
+**Time to fix:** ~5 min once the selector mismatch was spotted.
+**Tags:** #infra #safe #tooling
+
+---
+
+## [2026-04-25 F4.5] forge artifact `metadata` field is an object, `rawMetadata` is the JSON string
+
+**Repro:** `JSON.parse(art.metadata)` after `art = JSON.parse(readFileSync('out/Market.sol/Market.json'))`.
+
+**Symptom:** `SyntaxError: "[object Object]" is not valid JSON`.
+
+**Root cause:** Foundry stores both a parsed `metadata` (object) and the raw `rawMetadata` (string) in compilation artifacts. Earlier-version artifacts only had a string at `metadata` so the `JSON.parse` pattern was canonical. New artifacts changed shape.
+
+**Fix:** Use `JSON.parse(art.rawMetadata)` for verification scripts that need the raw standard-input-json. Or skip standard-json submission entirely and use `forge verify-contract <addr> <path>:<name>`, which lets foundry compose the input itself — that's what `deploy-f45.ts` ended up doing.
+
+**Time to fix:** ~3 min.
+**Tags:** #infra #foundry #verify

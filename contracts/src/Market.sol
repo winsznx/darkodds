@@ -245,35 +245,46 @@ contract Market is IMarket, ReentrancyGuard {
         // pattern. The user must have called cUSDC.setOperator(market, until)
         // before placeBet. The bet handle was just registered for both
         // (alice, market) — re-use it as the transferFrom amount handle.
-        IConfidentialUSDC(confidentialUSDC).confidentialTransferFrom(msg.sender, address(this), betAmount);
+        //
+        // ERC-7984 silent-failure semantics: if the user's cUSDC balance is
+        // less than `betAmount`, `transferred` is encrypted-zero and no
+        // underlying funds move. We bind ALL downstream pool/bet accounting
+        // to `transferred` (not `betAmount`) so the market only ever credits
+        // a user with what was actually pulled. This is the canonical
+        // ERC-7984 invariant per OZ Confidential Contracts reference.
+        euint256 transferred = IConfidentialUSDC(confidentialUSDC).confidentialTransferFrom(
+            msg.sender,
+            address(this),
+            betAmount
+        );
 
         // Add the bet to the appropriate batch accumulator. Use the unsafe
         // `Nox.add` rather than `safeAdd` because (a) the accumulator is a
         // u256 and even with millions of bets it's far from overflow, and (b)
-        // we'd have nothing useful to do with a "failed" success bool here.
+        // overflow on encrypted u256 is not a practical attack surface.
         if (side == 1) {
-            euint256 newYesBatch = Nox.add(_yesPoolBatch, betAmount);
+            euint256 newYesBatch = Nox.add(_yesPoolBatch, transferred);
             _yesPoolBatch = newYesBatch;
             Nox.allowThis(newYesBatch);
-            _yesBet[msg.sender] = betAmount;
+            _yesBet[msg.sender] = transferred;
         } else {
-            euint256 newNoBatch = Nox.add(_noPoolBatch, betAmount);
+            euint256 newNoBatch = Nox.add(_noPoolBatch, transferred);
             _noPoolBatch = newNoBatch;
             Nox.allowThis(newNoBatch);
-            _noBet[msg.sender] = betAmount;
+            _noBet[msg.sender] = transferred;
         }
 
-        // Per-user persistent ACL on their bet so they can off-chain
-        // `decrypt(yesBet[me])` / `decrypt(noBet[me])` later.
-        Nox.allowThis(betAmount);
-        Nox.allow(betAmount, msg.sender);
+        // Per-user persistent ACL on the *actually-transferred* amount so they
+        // can off-chain decrypt their bet.
+        Nox.allowThis(transferred);
+        Nox.allow(transferred, msg.sender);
 
         unchecked {
             ++totalBetCount;
             ++pendingBatchBetCount;
         }
 
-        emit BetPlaced(msg.sender, side, euint256.unwrap(betAmount), batchCount);
+        emit BetPlaced(msg.sender, side, euint256.unwrap(transferred), batchCount);
     }
 
     // ====================================================================
@@ -487,7 +498,7 @@ contract Market is IMarket, ReentrancyGuard {
         // per call without claimed bookkeeping; the second call refunds the
         // other side, then a third call reverts NoBetToRefund. This is
         // acceptable since per-side bet limit is one per user.
-        euint256 betHandle;
+        euint256 betHandle = euint256.wrap(bytes32(0));
         if (Nox.isInitialized(_yesBet[msg.sender])) {
             betHandle = _yesBet[msg.sender];
             _yesBet[msg.sender] = euint256.wrap(bytes32(0));
@@ -503,11 +514,15 @@ contract Market is IMarket, ReentrancyGuard {
         // cross-contract handle pattern, see F3 BUG_LOG).
         Nox.allowTransient(betHandle, confidentialUSDC);
 
-        // Transfer the bet handle (= user's original deposit handle) back
-        // from this market to the user via cUSDC.confidentialTransfer.
-        IConfidentialUSDC(confidentialUSDC).confidentialTransfer(msg.sender, betHandle);
+        // Transfer the user's original deposit (now stored in _yesBet/_noBet)
+        // back to them. The market's confidential balance always covers
+        // outstanding bets because placeBet binds bet records to actual
+        // pulled `transferred` amounts (post-F4.5 hardening). Capture the
+        // returned encrypted-actually-transferred handle for the event so
+        // off-chain consumers can verify the refund value.
+        euint256 refunded = IConfidentialUSDC(confidentialUSDC).confidentialTransfer(msg.sender, betHandle);
 
-        refundHandle = euint256.unwrap(betHandle);
+        refundHandle = euint256.unwrap(refunded);
         emit Refunded(msg.sender, refundHandle);
     }
 }

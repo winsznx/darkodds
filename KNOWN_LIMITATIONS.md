@@ -5,16 +5,58 @@ Read alongside `DRIFT_LOG.md` (process drift) and `BUG_LOG.md` (resolved bugs).
 
 ---
 
-## Admin centralization (filed: F4 ChainGPT audit)
+## Multisig governance migrated from EOA in F4.5
 
-All `Ownable` contracts (MarketRegistry, ResolutionOracle, AdminOracle,
-PreResolvedOracle, ChainlinkPriceOracle, FeeVault, TestUSDC) currently have
-the deployer EOA `0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5` as owner.
-ChainGPT auditor flagged this as HIGH-severity for production. **Accepted for
-v1** as the project is hackathon-grade testnet only. Production deployment
-plan: migrate ownership to a 2-of-3 admin multisig per PRD §3.4 row
-"Resolution oracle wrong" mitigation. The ownership-transfer machinery
-already exists via `Ownable.transferOwnership`.
+All seven Ownable contracts (TestUSDC, MarketRegistry, ResolutionOracle,
+AdminOracle, PreResolvedOracle, ChainlinkPriceOracle, FeeVault) are now
+owned by a 2-of-3 Gnosis Safe v1.4.1 at
+`0x042a49628f8A107C476B01bE8edEbB38110FA332`
+(see `https://app.safe.global/?safe=arb-sep:0x042a49628f8A107C476B01bE8edEbB38110FA332`).
+
+Signers (recorded in `deployments/arb-sepolia.json` under `safe.signers`):
+
+| #   | Address                                      | Role                 |
+| --- | -------------------------------------------- | -------------------- |
+| 1   | `0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5` | deployer EOA         |
+| 2   | `0xB20499998D3C3773941969a89d398416DE828eA1` | fresh, operator-held |
+| 3   | `0x4e29bBeB01b11E2FA71828D3BdA3F933e49a5c73` | fresh, operator-held |
+
+Threshold: **2-of-3** (any two of the three signers execute).
+
+### Why 2-of-3 not 3-of-3
+
+- 2-of-3 preserves operator liveness during the demo: a single operator
+  holding all three keys can co-sign without external coordination, while
+  losing one key (e.g. signer #2 corrupted) does not lock the project.
+- 3-of-3 is too brittle for hackathon scope; 2-of-3 is the standard
+  "multisig with one safety key" pattern.
+- Resolves the F4 ChainGPT auditor's HIGH "admin centralization" finding
+  and matches PRD §3.4 row "Resolution oracle wrong" → "Admin override via
+  2/3 multisig".
+
+### Production roadmap
+
+- **3-of-5 with hardware signers** (Ledger / Trezor) for production.
+- **Timelock module** wrapping sensitive ops (setMarketImplementation,
+  setResolutionOracle) with a 24-48h delay.
+- **Module-gated emergency pause** so a single hardware key can freeze
+  bets without unwinding state.
+- All current testnet Safe signers can be rotated via the Safe UI without
+  redeploying any project contracts.
+
+## Slither tool false positives accepted
+
+`Slither 0.11.5` reports 13 `reentrancy-no-eth` Medium findings on the
+F4.5 patched source. All are mitigated by `nonReentrant` from
+`@openzeppelin/contracts/utils/ReentrancyGuard.sol`, which slither does
+not model semantically. Documented in
+`contracts/audits/slither-2026-04-25/summary.md`. Re-test under
+slither ≥ 0.11.6 once available.
+
+Slither also retains stale phantom findings on user-defined-value-type
+declarations (`uninitialized-local`, `unused-return`, `immutable-states`)
+even though the source has been corrected. These are slither tool bugs,
+not contract issues — verified against the forge-produced AST.
 
 ## ClaimVerifier TDX measurement is a placeholder until F5
 

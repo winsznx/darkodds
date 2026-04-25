@@ -452,3 +452,69 @@ The ChainGPT auditor's tone is generic-LLM, but it caught real architectural con
 | **Total**                | **97.07%** | **96.07%** | **90.65%** | **97.14%** |
 
 148 unit tests + 2 fork tests pass. Coverage well above PRD's ≥85% bar across every file.
+
+---
+
+## Phase F4.5 — Slither & Safe SDK DX
+
+### Slither (`slither-analyzer 0.11.5`)
+
+**What worked:**
+
+- Auto-detection of foundry projects via `crytic-compile` is seamless — no `solc-remaps` config needed when `slither .` is run from a foundry root.
+- `--filter-paths "lib|test|script"` works as expected for project-only analysis.
+- The detector taxonomy is sensible: `reentrancy-no-eth` for state-after-external-call, `reentrancy-benign`/`reentrancy-events` for ordering nits, `timestamp` for `block.timestamp` reliance — all clearly named and mappable to remediation patterns.
+
+**What hurt:**
+
+- **UDVT line-mapping bug.** Slither's source-position resolver does NOT correctly handle user-defined-value-type variable declarations. The Nox SDK's `euint256` / `ebool` are UDVTs — exactly the right Solidity primitive for typed encrypted handles. After F4.5 hardening:
+  - `Market.refundIfInvalid` `euint256 betHandle = euint256.wrap(bytes32(0));` → flagged uninitialized.
+  - `Market.placeBet` `euint256 transferred = cUSDC.confidentialTransferFrom(...)` → flagged unused-return.
+  - `MarketRegistry` `address public immutable confidentialUSDC` → flagged "should be immutable".
+  - All three are syntactically and semantically correct; the forge-produced AST `initialValue`/`mutability` fields are populated. Slither just doesn't read them right. We documented as false positives in `audits/slither-2026-04-25/summary.md` after burning ~30 min trying every cache-clear / config permutation.
+- **`--checklist` mode produces inconsistent aggregations.** Running `slither . --checklist` produced 51 findings while `slither .` produced 47 — the extra 4 were the same UDVT phantoms but counted twice. The `--checklist` markdown output appears to merge stale + fresh detector runs in some race-y way. Workaround: always run `forge build --build-info --force` first, then `slither . --ignore-compile`.
+- **Exit code 255 is not "error"** — slither exits non-zero whenever it finds anything ≥informational, even on a clean run with all-low/info findings. CI integrators must check the JSON, not the exit code, to gate on severity.
+
+**Suggestions for crytic team:**
+
+- Add UDVT to slither's variable-init / return-capture / mutability detectors. The Nox SDK's `euint256` and OpenZeppelin Confidential's encrypted types are both UDVTs — this gap will hit every confidential-compute project on Solidity 0.8.34+.
+- Make `--checklist` re-run detectors fresh, or document the build-info ordering requirement.
+- Consider `--severity-threshold` flag for CI.
+
+### Safe Protocol Kit (`@safe-global/protocol-kit 7.1.0`)
+
+**What worked:**
+
+- `Safe.init({provider, signer, predictedSafe})` flow is clean: pass owners + threshold + saltNonce, get a kit pointed at the to-be-deployed address.
+- `createSafeDeploymentTransaction()` returns `{to, value, data}` ready to forward to viem's `walletClient.sendTransaction`. Decoupling tx construction from execution is the right move.
+- `getSafeAddressFromDeploymentTx` and `predictSafeAddress` give both pre- and post-deploy address resolution.
+- After deploy, `Safe.init({safeAddress})` is symmetric — same SDK, just connected mode.
+- Deployment cost was modest: Safe v1.4.1 + 7 ownership transfers (transferOwnership × 7) cost ~0.0003 ETH on Arb Sepolia at 0.1 gwei.
+
+**What hurt:**
+
+- **No "execute as N owners" helper.** To execute a tx with 2 signatures, you must:
+  1. `sdk1.createTransaction(...)` from owner #1's POV.
+  2. `sdk1.signTransaction(tx)` to add signature #1.
+  3. `await Safe.init({signer: PK2, safeAddress})` — re-init from owner #2's POV.
+  4. `sdk2.signTransaction(tx)` to add signature #2.
+  5. `sdk1.executeTransaction(tx)` to broadcast (any signer can execute).
+
+  This is verbose for the "operator co-signs with self" testnet pattern (where one operator holds all keys for expedience). A `safe.executeWithSigners([pk1, pk2], tx)` shorthand would shave 5 lines per call.
+
+- **GS013 swallows the inner revert reason.** When the wrapped tx reverts, Safe v1.4.1 propagates as the opaque `GS013`, not the inner reason. To debug, you have to manually `eth_call` the same target/data from the Safe address's perspective. A `Safe.simulateTransaction(tx)` helper that exposes the underlying revert would help (especially since the SDK already has `estimateContractGas` machinery).
+- **`executeTransaction` return shape is provider-dependent.** Sometimes `{hash}`, sometimes `{transactionResponse: {hash}}`. The TS types should narrow this; currently we have to cast through `unknown` to support both.
+
+**DX overall: 7/10.** The Protocol Kit is the cleanest Solidity-side multisig SDK we've used. The 5-line "execute with two signatures" boilerplate is the main UX rough edge.
+
+### Multisig migration cost
+
+| Operation                                                                  | Gas                | ETH @ 0.1 gwei    |
+| -------------------------------------------------------------------------- | ------------------ | ----------------- |
+| Safe v1.4.1 deploy via SafeProxyFactory                                    | ~615k              | 0.000061 ETH      |
+| 7 × `transferOwnership(safe)`                                              | ~30k each = 210k   | 0.000021 ETH      |
+| Safe execTransaction × 5 in smoke (mint, createMarket × 2, setAdapter × 2) | ~250k each = 1.25M | 0.000125 ETH      |
+| MarketImpl v3 deploy + Safe-set-impl                                       | 2.4M + 90k         | 0.000249 ETH      |
+| **Total F4.5 chain ops**                                                   | **~4.5M gas**      | **~0.000456 ETH** |
+
+Slither install + run was free.

@@ -3,7 +3,7 @@
   "contracts": {
     "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
     "ConfidentialUSDC": "0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
-    "MarketImplementation": "0x297ddb129f87b37e4b28cd1c1c6457ed0c7bb8c4",
+    "MarketImplementation": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
     "MarketRegistry": "0xe66b2f638f5db738243a44f7aeb1cccc18906dd1",
     "ResolutionOracle": "0x27dc556b9e6c1a031bd779e9524936f70b66b96c",
     "AdminOracle": "0x96b6ecc138a231ddff9e8ea856fb8869b4be103f",
@@ -13,7 +13,8 @@
     "FeeVault": "0x4fc729a98824bf2e6da4bba903ead73432afa351",
     "Market_1": "0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
     "Market_2": "0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
-    "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229"
+    "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229",
+    "MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
   "deployedAt": 1777129921,
@@ -27,7 +28,8 @@
     "ClaimVerifier": "https://sepolia.arbiscan.io/address/0x5cc49763703656fec4be672e254f7f024de2b82a",
     "FeeVault": "https://sepolia.arbiscan.io/address/0x4fc729a98824bf2e6da4bba903ead73432afa351",
     "Market_1": "https://sepolia.arbiscan.io/address/0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
-    "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297"
+    "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
+    "MarketImplementation_v3": "https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea"
   },
   "notes": {
     "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
@@ -37,6 +39,69 @@
     "f3_legacy_Market_0": "0x60a1e4f30b02e78c0dc9bd28ac468052da01279e",
     "f3_legacy_note": "F3's Market implementation + registry + Market[0] are superseded. Old Market[0] still works for placeBet/publishBatch but its F4 surface (resolveOracle/claim/refund) reverts PhaseNotImplemented.",
     "f4_chainlink_skip": "Chainlink data feeds are not deployed on Arb Sepolia (verified against smartcontractkit/hardhat-chainlink registry). ChainlinkPriceOracle is deployed for mainnet completeness; the BTC-resolved demo market is omitted from testnet per PRD §0.5 'no mocks'.",
-    "f4_claim_verifier_placeholder": "ClaimVerifier pinned to keccak256('DARKODDS_F4_DEMO_MEASUREMENT'). F5 redeploys with the real TDX measurement once the TEE handler image is built."
+    "f4_claim_verifier_placeholder": "ClaimVerifier pinned to keccak256('DARKODDS_F4_DEMO_MEASUREMENT'). F5 redeploys with the real TDX measurement once the TEE handler image is built.",
+    "f4_legacy_MarketImplementation": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
+    "f45_marketimpl_swap_tx": "0x89363f9cb8222d83da433e587e07d96bea47c8777457566272ea8adecd6a1060"
+  },
+  "safe": {
+    "address": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+    "version": "1.4.1",
+    "threshold": 2,
+    "signers": [
+      "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+      "0xB20499998D3C3773941969a89d398416DE828eA1",
+      "0x4e29bBeB01b11E2FA71828D3BdA3F933e49a5c73"
+    ],
+    "saltNonce": "0x0000000000000000000000000000000000000000000000000000019dc5e6a3e5",
+    "deploymentTx": "0xc4959e5532148e2a18fea99e7a4f13808ccfd03104b5e9ae5aa1c30b7a1e587f",
+    "safeUiUrl": "https://app.safe.global/?safe=arb-sep:0x042a49628f8A107C476B01bE8edEbB38110FA332"
+  },
+  "ownership": {
+    "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+    "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+    "contracts": {
+      "TestUSDC": {
+        "address": "0xf02C982D19184c11b86BC34672441C45fBF0f93E",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x219b5c77d586b51f022b7b86b5df5be4ddbea7befea0893e5447b606b7417c3b"
+      },
+      "MarketRegistry": {
+        "address": "0xe66B2f638F5Db738243A44f7aEB1cCcc18906DD1",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x5501edf066a16e7fed8219ffade52e23fc9cc9cb5d8fd50b47d5d796def1aa82"
+      },
+      "ResolutionOracle": {
+        "address": "0x27Dc556b9e6c1a031bd779E9524936F70b66b96c",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x907e2ba9cda12d282f0baccf65ab977d70711af2e5435c10b61098464ae5818a"
+      },
+      "AdminOracle": {
+        "address": "0x96b6ECC138A231Ddff9E8eA856fB8869b4be103F",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0xe65865260ffd708591bd256f6c4212f01553b3f6dd8df0b47348fdf5221e398b"
+      },
+      "PreResolvedOracle": {
+        "address": "0x76147d3C1e241B4bb746002763991789661Cc893",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x8f776afdcc3925d7a71f4d459f700a2e782b453e9cd4f938a7499f3e2a7d6084"
+      },
+      "ChainlinkPriceOracle": {
+        "address": "0x316dC924697406af553c7276c285b11B83Cc3cb2",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x83984f4e600aa008602ac2ddc7341061b635c18502483170eb4d217b869ddf3e"
+      },
+      "FeeVault": {
+        "address": "0x4FC729a98824Bf2E6da4BBA903eAd73432aFa351",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x5271a9c6e86747feb2716bdac462b25e82295203c58f144bb13f392e92c1c092"
+      }
+    }
   }
 }

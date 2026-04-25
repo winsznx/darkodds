@@ -353,3 +353,102 @@ Adding two encrypted values is `Nox.add(handleA, handleB)` — looks like a regu
 The only meaningful friction is mental: every TEE-output handle needs an explicit `Nox.allowThis(handle)` to keep using it later. Forgetting this leads to `NotAllowed` reverts on the next op. It's the encrypted-state equivalent of forgetting to free memory in C — annoying but learnable. Once the pattern is internalised, the code reads cleanly.
 
 The `confidentialTransferFrom` DX is identical to plain ERC-20 `transferFrom` modulo the encrypted amount handle — operator approval is a one-shot `setOperator(spender, until)` call (timestamp-based) instead of per-amount `approve`. We prefer this; it's cleaner for repeated bets in the same market session.
+
+---
+
+## Phase F4 — Resolution + Claim live on Arbitrum Sepolia
+
+### Deployment
+
+| Contract                                               | Address                                                                                             | Verified |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | -------- |
+| Market implementation v2                               | [`0x297ddb...b8c4`](https://sepolia.arbiscan.io/address/0x297ddb129f87b37e4b28cd1c1c6457ed0c7bb8c4) | ✅       |
+| MarketRegistry v2                                      | [`0xe66b2f...6dd1`](https://sepolia.arbiscan.io/address/0xe66b2f638f5db738243a44f7aeb1cccc18906dd1) | ✅       |
+| ResolutionOracle                                       | [`0x27dc55...b96c`](https://sepolia.arbiscan.io/address/0x27dc556b9e6c1a031bd779e9524936f70b66b96c) | ✅       |
+| AdminOracle                                            | [`0x96b6ec...103f`](https://sepolia.arbiscan.io/address/0x96b6ecc138a231ddff9e8ea856fb8869b4be103f) | ✅       |
+| PreResolvedOracle                                      | [`0x76147d...c893`](https://sepolia.arbiscan.io/address/0x76147d3c1e241b4bb746002763991789661cc893) | ✅       |
+| ChainlinkPriceOracle (mainnet-ready, testnet-no-feeds) | [`0x316dc9...3cb2`](https://sepolia.arbiscan.io/address/0x316dc924697406af553c7276c285b11b83cc3cb2) | ✅       |
+| ClaimVerifier (placeholder TDX)                        | [`0x5cc497...b82a`](https://sepolia.arbiscan.io/address/0x5cc49763703656fec4be672e254f7f024de2b82a) | ✅       |
+| FeeVault                                               | [`0x4fc729...a351`](https://sepolia.arbiscan.io/address/0x4fc729a98824bf2e6da4bba903ead73432afa351) | ✅       |
+| Market[1] (admin-resolved, +14d)                       | [`0x98ae59...53f7`](https://sepolia.arbiscan.io/address/0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7) | ✅       |
+| Market[2] (pre-resolved YES)                           | [`0xec3b47...3297`](https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297) | ✅       |
+
+### Smoke run — two full lifecycles, ~4:48 min total
+
+**Lifecycle A** — PreResolved YES, full claim path:
+
+| step                                            | latency    |
+| ----------------------------------------------- | ---------- |
+| deploy fresh PreOracle (smoke isolation)        | 3239ms     |
+| mint + approve + wrap A + wrap B                | 14.2s      |
+| create market + configure adapter + setOperator | 9.6s       |
+| encryptInput + placeBet                         | 3.5s       |
+| **wait 65s batch interval**                     | 65s        |
+| publishBatch                                    | 2.7s       |
+| **wait 13s for market expiry**                  | 13.3s      |
+| resolveOracle (state → Resolving)               | 3.0s       |
+| publicDecrypt YES pool = 50_000_000 ✓           | 5.0s       |
+| freezePool (state → ClaimWindow)                | (in above) |
+| **wait 61s claim-open delay**                   | 61.3s      |
+| claimWinnings → hasClaimed = true ✓             | 4.6s       |
+
+**Lifecycle B** — PreResolved INVALID, refund path:
+
+| step                                          | latency |
+| --------------------------------------------- | ------- |
+| create market + configure + setOperator + bet | 11.6s   |
+| **wait 82s for market expiry**                | 82.3s   |
+| resolveOracle (state → Invalid)               | 3.1s    |
+| refundIfInvalid → yesBet handle cleared ✓     | 3.3s    |
+
+Total: 287519ms (~4:48). 219s of that is mandatory privacy-primitive waits (60s batch + 13s + 61s + 82s).
+
+### What worked beautifully
+
+1. **The lazy public decryption pattern composed cleanly with resolution.** `freezePool(yesProof, noProof)` consumes off-chain `publicDecrypt` proofs that the smoke test fetches from the Nox gateway in real-time. The proofs are gateway-signed EIP-712 over `keccak256(handle, plaintext)`; `Nox.publicDecrypt` validates them on-chain. Nice clean handoff between off-chain decryption and on-chain plaintext snapshot. No TEE handler involvement needed at this stage — F5 will do the proportional payout math with the same primitives.
+
+2. **`AdminOracle` commit-reveal** on top of `IResolutionAdapter` is a 30-line addition that makes the orchestrator MEV-safe without complicating Market.sol. Market just calls `oracle.resolve()`; commit-reveal is an adapter-internal concern.
+
+3. **EIP-1167 clones survived the resolveOracle/claim/refund extension** without storage layout migrations. The new state fields (`yesPoolFrozen`, `noPoolFrozen`, `resolutionTs`, `poolFrozenTs`, `claimWindowOpensAt`, `resolutionOracle`) appended cleanly. Proof: the deploy spec's "old Market[0] still works for placeBet/publishBatch but its F4 surface reverts PhaseNotImplemented" is exactly right; the clone delegatecalls into the OLD implementation which has the F3 layout and stub reverts.
+
+4. **`Nox.allowTransient` cross-contract pattern** ported from F3 to refundIfInvalid without surprises. Same idiom: market grants cUSDC transient ACL on the bet handle before delegating `confidentialTransfer`.
+
+### What was friction (Chainlink + Arbitrum Sepolia)
+
+The big one: **Chainlink has no data feeds on Arb Sepolia.** Verified against `smartcontractkit/hardhat-chainlink`'s authoritative registry. The PRD's BTC/USD aggregator address `0x942d00...` is mainnet (Arbitrum One); using it on testnet would either revert (no contract) or silently read stale/wrong data. There's also no L2 sequencer uptime feed on Sepolia ([Issue #10699](https://github.com/smartcontractkit/chainlink/issues/10699) requesting it has been open since Sept 2023, status `investigating`).
+
+Practical impact: the Chainlink-resolved demo market gets dropped from testnet per PRD §0.5 ("if something can't be live, the demo skips it — never fakes it"). `ChainlinkPriceOracle.sol` ships to spec, deploys for audit visibility, but isn't wired into any market on testnet. Production deployment on Arb mainnet would use the real BTC/USD feed (`0x6ce185860a4963106506C203335A2910413708e9` proxy) + the real sequencer feed (`0xFdB631F5EE196F0ed6FAa767959853A9F217697D`).
+
+**Suggestion to Chainlink:** the absence of testnet feeds blocks every L2 prediction-market / DeFi project from doing realistic testnet integration. A minimal subset (BTC/USD + ETH/USD + sequencer uptime) on Arb Sepolia would unblock a lot of projects.
+
+### Friction in our own design — caught + fixed
+
+1. **The deploy script's market-id labeling drifted off-by-one.** I labeled them `Market_1` and `Market_2` in the deployments JSON but their actual `Market.id()` values are 0 and 1 (the new MarketRegistry counter starts at 0). Then the deploy's `PreResolvedOracle.configure(2, 1)` registered a phantom configuration for a market id that didn't exist. The smoke test then tried to configure id=2 (its first-created fresh market) and reverted `AlreadyConfigured`. Fixed by having the smoke deploy a fresh PreResolvedOracle of its own to avoid the phantom-config conflict. Also a lesson: **always cross-check label-vs-id alignment when a registry assigns ids by counter.** Better deploy scripts would assert `id == expected`.
+
+2. **viem nonce race on rapid-fire writeContract.** When the deploy script fired 6 `writeContract` calls back-to-back without awaiting receipts, viem's automatic nonce inference saw the same nonce twice and submitted a tx with `nonce too low` after the first one mined. Fixed by wrapping each writeContract in an `await waitForTransactionReceipt`. **Suggestion to viem:** explicit pending-nonce tracking via the wallet client would prevent this — currently you have to either await every receipt or manage nonce manually with `nonceManager`.
+
+3. **`vm.prank(OWNER)` consumed by an arg-evaluation contract call.** When test code wrote `oracle.method(market.id(), ...)`, the `market.id()` static call fired the prank one frame too early. Fix: cache `market.id()` to a state field and use it in the args. Foundry's prank semantics are correct; this is a test-author trap. Worth a one-line note in the Foundry docs ("prank is consumed by the next external call, including arg evaluation").
+
+### ChainGPT auditor pass
+
+Ran across all 10 contracts. Report: `contracts/audits/chaingpt-2026-04-25-f4.md`. All HIGH-severity findings reduce to "owner is a single EOA — consider multisig + time-lock", which is standard hackathon-grade hardening. Filed in `KNOWN_LIMITATIONS.md` as accepted v1 risk. No exploitable vulnerabilities surfaced.
+
+The ChainGPT auditor's tone is generic-LLM, but it caught real architectural concerns (admin centralization, missing event emissions, gas optimization opportunities). It missed some subtler points the human review would catch — for example, the cross-contract Nox ACL pattern (F3 BUG_LOG) wasn't flagged anywhere. Reasonable bar for "first-pass automated review", not a substitute for human auditing.
+
+### Test coverage
+
+`forge coverage` on `src/`:
+
+| File                     | Lines      | Statements | Branches   | Funcs      |
+| ------------------------ | ---------- | ---------- | ---------- | ---------- |
+| ConfidentialUSDC.sol     | 94.64%     | 93.91%     | 75.00%     | 94.44%     |
+| Market.sol               | 97.62%     | 95.26%     | 82.22%     | 95.24%     |
+| MarketRegistry.sol       | 100.00%    | 100.00%    | 100.00%    | 100.00%    |
+| ResolutionOracle.sol     | 100.00%    | 100.00%    | 100.00%    | 100.00%    |
+| AdminOracle.sol          | 100.00%    | 100.00%    | 100.00%    | 100.00%    |
+| PreResolvedOracle.sol    | 100.00%    | 100.00%    | 100.00%    | 100.00%    |
+| ChainlinkPriceOracle.sol | 97.56%     | 96.23%     | 90.91%     | 100.00%    |
+| TestUSDC.sol             | 100.00%    | 100.00%    | n/a        | 100.00%    |
+| **Total**                | **97.07%** | **96.07%** | **90.65%** | **97.14%** |
+
+148 unit tests + 2 fork tests pass. Coverage well above PRD's ≥85% bar across every file.

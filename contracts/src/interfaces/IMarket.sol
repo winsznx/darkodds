@@ -44,8 +44,10 @@ interface IMarket {
     event BatchPublished(uint256 indexed batchId, uint256 betsInBatch, uint256 timestamp);
     event MarketClosed(uint256 timestamp);
     event MarketResolved(uint8 outcome, uint256 timestamp);
+    event PoolFrozen(uint256 yesPoolPlaintext, uint256 noPoolPlaintext, uint256 timestamp);
+    event ClaimWindowOpened(uint256 timestamp);
     event MarketInvalidated(uint256 timestamp);
-    event Claimed(address indexed user, bytes32 payoutHandle);
+    event ClaimRecorded(address indexed user, uint8 winningSide, uint256 timestamp);
     event Refunded(address indexed user, bytes32 refundHandle);
 
     // ====================================================================
@@ -62,6 +64,7 @@ interface IMarket {
         uint256 expiryTs,
         uint256 protocolFeeBps,
         address confidentialUSDC,
+        address resolutionOracle,
         address admin
     ) external;
 
@@ -80,6 +83,12 @@ interface IMarket {
     function outcome() external view returns (uint8);
     function admin() external view returns (address);
     function confidentialUSDC() external view returns (address);
+    function resolutionOracle() external view returns (address);
+    function yesPoolFrozen() external view returns (uint256);
+    function noPoolFrozen() external view returns (uint256);
+    function resolutionTs() external view returns (uint256);
+    function poolFrozenTs() external view returns (uint256);
+    function claimWindowOpensAt() external view returns (uint256);
 
     /// @notice Publicly-decryptable handle of the running YES pool total (post-batch).
     function yesPoolPublishedHandle() external view returns (euint256);
@@ -127,11 +136,40 @@ interface IMarket {
     function markInvalid() external;
 
     // ====================================================================
-    // Phase F4 surface — present for ABI stability, stubbed to revert
+    // Resolution + Claim (F4)
     // ====================================================================
 
-    function resolveAdmin(uint8 winningOutcome) external;
+    /// @notice Permissionless after `expiryTs`. Routes to the configured
+    ///         `IResolutionOracle.resolve(id)` and stores the outcome. State:
+    ///         Closed → Resolving. Auto-flushes any pending batch first.
     function resolveOracle() external;
-    function claimWinnings() external returns (bytes32 payoutHandle);
+
+    /// @notice Admin-only emergency override that bypasses the configured
+    ///         oracle. State: Closed → Resolving. Same post-resolve flow as
+    ///         `resolveOracle` (caller still has to invoke `freezePool` and
+    ///         wait for the claim-window delay).
+    function resolveAdmin(uint8 winningOutcome) external;
+
+    /// @notice After resolution, anyone may submit gateway-issued public
+    ///         decryption proofs for the YES and NO published-pool handles to
+    ///         freeze them as plaintext. State: Resolving → Resolved.
+    /// @dev    Per PRD §6.1 freezePool: post-resolution privacy on aggregate
+    ///         pool size is not required (the outcome is public, payouts need
+    ///         the pool structure). Per-bet handles remain ACL'd to users.
+    function freezePool(bytes calldata yesPoolDecryptionProof, bytes calldata noPoolDecryptionProof) external;
+
+    /// @notice Claim a winning position. F4 ships an intent stub: emits the
+    ///         claim event and marks the user as claimed. F5's TEE handler
+    ///         reads these events, computes the proportional payout in
+    ///         plaintext, and triggers a confidential transfer back to the
+    ///         user's cUSDC handle. The split is deliberate — payout math
+    ///         requires TEE plaintext compute on encrypted user bets.
+    function claimWinnings() external;
+
+    /// @notice Full F4 implementation: market state must be Invalid, user must
+    ///         have a non-zero bet handle, the original encrypted bet flows
+    ///         back to the user via cUSDC.confidentialTransfer.
     function refundIfInvalid() external returns (bytes32 refundHandle);
+
+    function hasClaimed(address user) external view returns (bool);
 }

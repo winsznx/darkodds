@@ -17,22 +17,29 @@ import {IMarketRegistry} from "./interfaces/IMarketRegistry.sol";
 contract MarketRegistry is IMarketRegistry, Ownable {
     error InvalidImplementation();
     error InvalidConfidentialUSDC();
+    error InvalidResolutionOracle();
     error InvalidExpiry();
 
     address public marketImplementation;
     address public confidentialUSDC;
+    address public resolutionOracle;
     uint256 public nextMarketId;
     mapping(uint256 id => address) public markets;
+
+    event ResolutionOracleSet(address indexed previous, address indexed next);
 
     constructor(
         address marketImplementation_,
         address confidentialUSDC_,
+        address resolutionOracle_,
         address initialOwner
     ) Ownable(initialOwner) {
         if (marketImplementation_ == address(0)) revert InvalidImplementation();
         if (confidentialUSDC_ == address(0)) revert InvalidConfidentialUSDC();
+        if (resolutionOracle_ == address(0)) revert InvalidResolutionOracle();
         marketImplementation = marketImplementation_;
         confidentialUSDC = confidentialUSDC_;
+        resolutionOracle = resolutionOracle_;
     }
 
     function createMarket(
@@ -62,6 +69,7 @@ contract MarketRegistry is IMarketRegistry, Ownable {
             expiryTs,
             protocolFeeBps,
             confidentialUSDC,
+            resolutionOracle,
             owner() // current registry owner becomes that market's admin
         );
 
@@ -73,5 +81,12 @@ contract MarketRegistry is IMarketRegistry, Ownable {
         address previous = marketImplementation;
         marketImplementation = newImpl;
         emit MarketImplementationUpdated(previous, newImpl);
+    }
+
+    function setResolutionOracle(address newOracle) external onlyOwner {
+        if (newOracle == address(0)) revert InvalidResolutionOracle();
+        address previous = resolutionOracle;
+        resolutionOracle = newOracle;
+        emit ResolutionOracleSet(previous, newOracle);
     }
 }

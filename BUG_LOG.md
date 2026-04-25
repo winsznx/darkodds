@@ -120,6 +120,62 @@ Error: contract was not deployed
 
 ---
 
+## [2026-04-25 F4] PRD §5.4.1 BTC/USD aggregator address is mainnet (Arb One), not Arb Sepolia
+
+**Repro:** Read PRD v1.3 §5.4.1 — claims `0x942d00008D658dbB40745BBEc89A93c253f9B882` is BTC/USD on Arb Sepolia.
+**Symptom:** Calling `latestRoundData()` at that address on Arb Sepolia would either revert (no contract) or silently return data from whatever address happens to live there.
+**Root cause:** Verified via `smartcontractkit/hardhat-chainlink/src/registries/json/DataFeeds.json` (commit `25ccf9dc`): the address belongs to chainId 42161 (Arbitrum One mainnet), not 421614 (Arb Sepolia). The `DataFeeds.json` registry contains zero entries for chainId 421614 — Chainlink has not deployed feeds to Arb Sepolia at all.
+**Fix:** F4 deploys ChainlinkPriceOracle for mainnet correctness but skips the BTC-resolved demo market on testnet per PRD §0.5. Production deploy on Arbitrum One uses the real address. Documented in DRIFT_LOG entry "PRD §5.4.1 BTC/USD aggregator address misattributed; no Chainlink feeds on Arb Sepolia".
+**Time to fix:** 30 min (librarian research + design adjustment).
+**Tags:** #infra #chainlink
+
+---
+
+## [2026-04-25 F4] viem `writeContract` nonce race when called rapid-fire without awaiting receipts
+
+**Repro:** In `tools/deploy-f4.ts`, fire 5+ `walletClient.writeContract({...})` calls back-to-back, awaiting only the promise resolution (not the transaction receipt).
+**Symptom:**
+
+```
+ContractFunctionExecutionError: Nonce provided for the transaction is lower than the current nonce of the account.
+Details: nonce too low: address 0xF97933..., tx: 26 state: 27
+```
+
+**Root cause:** viem 2.48.4's automatic nonce inference reads `eth_getTransactionCount(latest)` to assign nonce, but if a previous tx hasn't mined yet (only submitted), the next call sees the same nonce and the tx gets rejected. Auto-nonce assumes serial-await semantics.
+**Fix:** Wrap each `writeContract` in `publicClient.waitForTransactionReceipt({hash})` before the next call. We added a small `wcWait()` helper in deploy-f4.ts.
+**Time to fix:** 5 min once the failure mode was understood.
+**Tags:** #infra #viem
+
+---
+
+## [2026-04-25 F4] PreResolvedOracle.configure phantom-id collision blocks fresh smoke runs
+
+**Repro:** Call `deploy-f4.ts` (which configures `PreResolvedOracle.configure(2, 1)`), then run `smoke-f4.ts` which creates a new market and tries to configure that market id (which happens to be `2` because the registry's `nextMarketId` had advanced to 2 after the deploy created markets 0 and 1).
+**Symptom:** `configure` reverts with `AlreadyConfigured(2)`.
+**Root cause:** The deploy script labelled markets as "Market_1" and "Market_2" in the deployments JSON, but their actual `Market.id()` values are 0 and 1 (the registry counter starts at 0). The deploy then configured the WRONG ids in PreResolvedOracle (2 instead of 1), creating a phantom configuration for a market that doesn't exist. When the smoke test created a new market and got id=2, configuring it conflicted.
+**Fix:** smoke-f4.ts deploys a fresh `PreResolvedOracle` per run for full isolation from the production-deploy oracle. Trade-off: an extra contract deploy per smoke run (~0.0005 ETH); benefit: smoke is idempotent. Long-term: rewrite deploy-f4.ts to read `nextMarketId` between createMarket calls and assert id alignment, or to read MarketCreated event topics for the actual id (currently parses address from the event data, ignoring id).
+**Time to fix:** 10 min.
+**Tags:** #infra #deploy
+
+---
+
+## [2026-04-25 F4] `vm.prank` consumed by arg-evaluation contract call inside the same expression
+
+**Repro:** In a Foundry test:
+
+```solidity
+vm.prank(OWNER);
+oracle.someFunction(market.id(), ...);  // market.id() is a contract call!
+```
+
+**Symptom:** `someFunction` reverts `OwnableUnauthorizedAccount(test_contract_address)`.
+**Root cause:** Solidity evaluates function arguments before the call. `market.id()` is a STATICCALL that consumes the prepared prank, so by the time `someFunction` actually fires, `msg.sender` is back to the test contract.
+**Fix:** Cache `market.id()` to a state field once in setUp (or to a local before any prank), then use the cached value in pranked calls.
+**Time to fix:** 15 min once `forge test -vvvv` showed the trace.
+**Tags:** #foundry #tests
+
+---
+
 ## [2026-04-25 F3] Market.placeBet → cUSDC.confidentialTransferFrom reverts NotAllowed on the bet handle
 
 **Repro:**

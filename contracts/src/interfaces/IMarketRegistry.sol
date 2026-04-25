@@ -15,6 +15,9 @@ interface IMarketRegistry {
     /// @notice The cUSDC token that all markets settle against.
     function confidentialUSDC() external view returns (address);
 
+    /// @notice The resolution oracle orchestrator that all markets call.
+    function resolutionOracle() external view returns (address);
+
     /// @notice Counter for the next market id (markets are zero-indexed by default).
     function nextMarketId() external view returns (uint256);
 

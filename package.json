@@ -19,6 +19,8 @@
     "smoke:f2": "tsx tools/smoke-f2.ts",
     "deploy:f3": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f3.ts'",
     "smoke:f3": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f3.ts'",
+    "deploy:f4": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f4.ts'",
+    "smoke:f4": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f4.ts'",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"

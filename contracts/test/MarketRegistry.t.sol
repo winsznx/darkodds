@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Market} from "../src/Market.sol";
 import {MarketRegistry} from "../src/MarketRegistry.sol";
+import {ResolutionOracle} from "../src/ResolutionOracle.sol";
 import {IMarket} from "../src/interfaces/IMarket.sol";
 import {ConfidentialUSDC} from "../src/ConfidentialUSDC.sol";
 import {TestUSDC} from "../src/TestUSDC.sol";
@@ -18,6 +19,7 @@ contract MarketRegistryTest is Test {
     TestUSDC private usdc;
     Market private marketImpl;
     MarketRegistry private registry;
+    address private resolutionOracle;
 
     address private constant OWNER = address(0xA11CE);
     uint256 private constant GATEWAY_KEY = 0xBEEF;
@@ -27,7 +29,8 @@ contract MarketRegistryTest is Test {
         usdc = new TestUSDC(OWNER);
         cusdc = new ConfidentialUSDC(IERC20(address(usdc)), "ctUSDC", "ctUSDC");
         marketImpl = new Market();
-        registry = new MarketRegistry(address(marketImpl), address(cusdc), OWNER);
+        resolutionOracle = address(new ResolutionOracle(OWNER));
+        registry = new MarketRegistry(address(marketImpl), address(cusdc), resolutionOracle, OWNER);
     }
 
     // ====================================================================
@@ -36,12 +39,17 @@ contract MarketRegistryTest is Test {
 
     function test_Constructor_RevertsOnZeroImpl() public {
         vm.expectRevert(MarketRegistry.InvalidImplementation.selector);
-        new MarketRegistry(address(0), address(cusdc), OWNER);
+        new MarketRegistry(address(0), address(cusdc), resolutionOracle, OWNER);
     }
 
     function test_Constructor_RevertsOnZeroCUSDC() public {
         vm.expectRevert(MarketRegistry.InvalidConfidentialUSDC.selector);
-        new MarketRegistry(address(marketImpl), address(0), OWNER);
+        new MarketRegistry(address(marketImpl), address(0), resolutionOracle, OWNER);
+    }
+
+    function test_Constructor_RevertsOnZeroOracle() public {
+        vm.expectRevert(MarketRegistry.InvalidResolutionOracle.selector);
+        new MarketRegistry(address(marketImpl), address(cusdc), address(0), OWNER);
     }
 
     function test_Constructor_StoresState() public view {
@@ -104,7 +112,17 @@ contract MarketRegistryTest is Test {
     function test_CreateMarket_CloneCannotBeReinitialized() public {
         (, address m) = _create("q", block.timestamp + 7 days);
         vm.expectRevert(Market.AlreadyInitialized.selector);
-        IMarket(m).initialize(99, "x", "y", 0, block.timestamp + 1 days, 100, address(cusdc), OWNER);
+        IMarket(m).initialize(
+            99,
+            "x",
+            "y",
+            0,
+            block.timestamp + 1 days,
+            100,
+            address(cusdc),
+            resolutionOracle,
+            OWNER
+        );
     }
 
     // ====================================================================
@@ -137,5 +155,24 @@ contract MarketRegistryTest is Test {
         registry.setMarketImplementation(address(newImpl));
         // Old clone still functions — its delegatecall target is the *first* impl.
         assertEq(IMarket(oldMarket).question(), "q");
+    }
+
+    function test_SetResolutionOracle_OnlyOwner() public {
+        ResolutionOracle newOracle = new ResolutionOracle(OWNER);
+        vm.expectRevert();
+        registry.setResolutionOracle(address(newOracle));
+    }
+
+    function test_SetResolutionOracle_RevertsOnZero() public {
+        vm.prank(OWNER);
+        vm.expectRevert(MarketRegistry.InvalidResolutionOracle.selector);
+        registry.setResolutionOracle(address(0));
+    }
+
+    function test_SetResolutionOracle_HappyPath() public {
+        ResolutionOracle newOracle = new ResolutionOracle(OWNER);
+        vm.prank(OWNER);
+        registry.setResolutionOracle(address(newOracle));
+        assertEq(registry.resolutionOracle(), address(newOracle));
     }
 }

@@ -3,28 +3,40 @@
   "contracts": {
     "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
     "ConfidentialUSDC": "0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
-    "MarketImplementation": "0x8f16021bf370eca1bd94210a318416b9116f0a2e",
-    "MarketRegistry": "0xec13c614f817a97462ca669473f28a3e6aacaafb",
-    "Market_0": "0x60a1e4f30b02e78c0dc9bd28ac468052da01279e",
+    "MarketImplementation": "0x297ddb129f87b37e4b28cd1c1c6457ed0c7bb8c4",
+    "MarketRegistry": "0xe66b2f638f5db738243a44f7aeb1cccc18906dd1",
+    "ResolutionOracle": "0x27dc556b9e6c1a031bd779e9524936f70b66b96c",
+    "AdminOracle": "0x96b6ecc138a231ddff9e8ea856fb8869b4be103f",
+    "PreResolvedOracle": "0x76147d3c1e241b4bb746002763991789661cc893",
+    "ChainlinkPriceOracle": "0x316dc924697406af553c7276c285b11b83cc3cb2",
+    "ClaimVerifier": "0x5cc49763703656fec4be672e254f7f024de2b82a",
+    "FeeVault": "0x4fc729a98824bf2e6da4bba903ead73432afa351",
+    "Market_1": "0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
+    "Market_2": "0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
     "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
-  "deployedAt": 1777126559,
-  "txs": {
-    "ConfidentialUSDC": "0x224cc1b6d643354810e6a7f590b4ebdf41c854108d950e9aa82c4cffddcc0f38",
-    "MarketImplementation": "0x2250d28af6a51c4b648d670610468f933b5ba0d889ef0fc675d40e70fbc47485",
-    "MarketRegistry": "0x22539514b2eb59120153af3763d3f3e33c638a20e4220aa6adacba4979ca8b4e",
-    "Market_0_create": "0x603e588cec52f8d6476b740e5da5d513a4e322e37b702be89940124ab5a0bb32"
-  },
+  "deployedAt": 1777129921,
   "arbiscan": {
-    "TestUSDC": "https://sepolia.arbiscan.io/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e",
-    "ConfidentialUSDC": "https://sepolia.arbiscan.io/address/0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
-    "MarketImplementation": "https://sepolia.arbiscan.io/address/0x8f16021bf370eca1bd94210a318416b9116f0a2e",
-    "MarketRegistry": "https://sepolia.arbiscan.io/address/0xec13c614f817a97462ca669473f28a3e6aacaafb",
-    "Market_0": "https://sepolia.arbiscan.io/address/0x60a1e4f30b02e78c0dc9bd28ac468052da01279e"
+    "MarketImplementation": "https://sepolia.arbiscan.io/address/0x297ddb129f87b37e4b28cd1c1c6457ed0c7bb8c4",
+    "MarketRegistry": "https://sepolia.arbiscan.io/address/0xe66b2f638f5db738243a44f7aeb1cccc18906dd1",
+    "ResolutionOracle": "https://sepolia.arbiscan.io/address/0x27dc556b9e6c1a031bd779e9524936f70b66b96c",
+    "AdminOracle": "https://sepolia.arbiscan.io/address/0x96b6ecc138a231ddff9e8ea856fb8869b4be103f",
+    "PreResolvedOracle": "https://sepolia.arbiscan.io/address/0x76147d3c1e241b4bb746002763991789661cc893",
+    "ChainlinkPriceOracle": "https://sepolia.arbiscan.io/address/0x316dc924697406af553c7276c285b11b83cc3cb2",
+    "ClaimVerifier": "https://sepolia.arbiscan.io/address/0x5cc49763703656fec4be672e254f7f024de2b82a",
+    "FeeVault": "https://sepolia.arbiscan.io/address/0x4fc729a98824bf2e6da4bba903ead73432afa351",
+    "Market_1": "https://sepolia.arbiscan.io/address/0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
+    "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297"
   },
   "notes": {
     "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
-    "f2_legacy_note": "F2's ConfidentialUSDC v1 (lacking the operator pattern) is superseded by v2 above. F2 wrap/unwrap continues to work on the legacy address but Market integration requires v2."
+    "f2_legacy_note": "F2's ConfidentialUSDC v1 (lacking the operator pattern) is superseded by v2 above. F2 wrap/unwrap continues to work on the legacy address but Market integration requires v2.",
+    "f3_legacy_MarketImplementation": "0x8f16021bf370eca1bd94210a318416b9116f0a2e",
+    "f3_legacy_MarketRegistry": "0xec13c614f817a97462ca669473f28a3e6aacaafb",
+    "f3_legacy_Market_0": "0x60a1e4f30b02e78c0dc9bd28ac468052da01279e",
+    "f3_legacy_note": "F3's Market implementation + registry + Market[0] are superseded. Old Market[0] still works for placeBet/publishBatch but its F4 surface (resolveOracle/claim/refund) reverts PhaseNotImplemented.",
+    "f4_chainlink_skip": "Chainlink data feeds are not deployed on Arb Sepolia (verified against smartcontractkit/hardhat-chainlink registry). ChainlinkPriceOracle is deployed for mainnet completeness; the BTC-resolved demo market is omitted from testnet per PRD §0.5 'no mocks'.",
+    "f4_claim_verifier_placeholder": "ClaimVerifier pinned to keccak256('DARKODDS_F4_DEMO_MEASUREMENT'). F5 redeploys with the real TDX measurement once the TEE handler image is built."
   }
 }

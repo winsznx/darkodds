@@ -6,6 +6,69 @@ Format per §0.2.
 
 ---
 
+## [2026-04-25 F4] PRD §5.4.1 BTC/USD aggregator address misattributed; no Chainlink feeds on Arb Sepolia
+
+**Expected (per PRD v1.3 §5.4.1):** BTC/USD Aggregator at `0x942d00008D658dbB40745BBEc89A93c253f9B882` on Arbitrum Sepolia + L2 Sequencer Uptime Feed available on Arb Sepolia.
+**Actual:** Source-evidence research against `smartcontractkit/hardhat-chainlink`'s authoritative deployment registry confirmed:
+
+1. The address `0x942d00008D658dbB40745BBEc89A93c253f9B882` IS the BTC/USD aggregator — but on **Arbitrum One mainnet** (chainId 42161), not Arbitrum Sepolia. Citation: [DataFeeds.json @ commit 25ccf9dc](https://github.com/smartcontractkit/hardhat-chainlink/blob/25ccf9dc81cd922e94e647e7cad1885dc733ec75/src/registries/json/DataFeeds.json).
+2. Chainlink has NOT deployed any data feeds to Arb Sepolia — the registry contains zero entries for chainId 421614.
+3. There is no L2 Sequencer Uptime Feed on Arb Sepolia. [Issue #10699](https://github.com/smartcontractkit/chainlink/issues/10699) requesting it has been open with `investigating` label since September 2023.
+   **Reason:** PRD §5.4.1 was written assuming testnet Chainlink feeds existed; they do not.
+   **Impact:** F4 ships `ChainlinkPriceOracle.sol` to spec for **mainnet**, with the sequencer uptime check chain-conditional (skipped when `sequencerFeed == address(0)`, which is the testnet configuration). The contract is deployed on Arb Sepolia for completeness/audit visibility but is not wired into any active market — the BTC-resolved demo market is intentionally OMITTED from testnet per PRD §0.5 ("if something can't be live, the demo skips it — never fakes it"). For mainnet deployment, sequencer feed = `0xFdB631F5EE196F0ed6FAa767959853A9F217697D` (Arbitrum One, verified).
+   **Decision:** Proceed without the BTC market on testnet. Documented in `feedback.md` as a Chainlink + Arbitrum Sepolia gap worth flagging upstream.
+
+---
+
+## [2026-04-25 F4] claimWinnings is an INTENT STUB in F4; payout math deferred to F5
+
+**Expected (per PRD §5.3):** `claimWinnings()` returns the user's encrypted payout handle.
+**Actual:** F4 ships `claimWinnings()` as a state-recording stub: it validates the claim (state == ClaimWindow, user has a winning bet, no double-claim) and emits `ClaimRecorded(user, outcome, ts)`. No payout math, no confidential transfer. The full proportional `payout = userBet * (totalPool / winningSideTotal)` lives in F5's TEE handler `computePayout(marketId, user)`, which reads the `ClaimRecorded` events and triggers a confidential transfer back to the user via cUSDC.
+**Reason:** Payout requires plaintext compute on encrypted user bets, which is exactly what TEE handlers exist for. Doing it in Solidity would require either (a) the user pre-decrypts and asserts their bet via attestation (heavy UX) or (b) skipping the privacy property entirely. Both are worse than the F4/F5 split.
+**Impact:** F4 demo can show the FULL claim flow up to and including the on-chain `ClaimRecorded` event. The actual cUSDC transfer arrives in F5. F4's smoke test verifies `hasClaimed[user] == true` after `claimWinnings()` succeeds.
+**Decision:** Proceed with intent-only stub. F5 prompt should explicitly wire the TEE handler to consume `ClaimRecorded` events.
+
+---
+
+## [2026-04-25 F4] ClaimVerifier deployed with PLACEHOLDER TDX measurement; F5 redeploys
+
+**Expected (per PRD §5.5):** ClaimVerifier pinned to the real TDX measurement of the deployed Nox TEE handler image.
+**Actual:** F4 ships ClaimVerifier with `pinnedTdxMeasurement = keccak256("DARKODDS_F4_DEMO_MEASUREMENT")` and `attestationSigner = deployer EOA`. These are deliberately placeholder values — F5 deploys the TEE handler image, computes the real TDX measurement, and **redeploys** ClaimVerifier with that measurement (trust-anchor migration pattern per §5.5). Old attestations against the placeholder verifier still validate locally, but no real TEE-signed attestations exist yet.
+**Reason:** Per PRD §5.5, immutable measurement is load-bearing; pinning to placeholder for F4 lets us ship + verify the contract surface without blocking on F5. Better than waiting.
+**Impact:** F4 commit includes a deployed ClaimVerifier that judges/auditors can read. F5 commit will REPLACE the address (current: `0x5cc49763703656fec4be672e254f7f024de2b82a`) with a fresh deployment bound to the real TEE measurement. F5 deploy script must also update `deployments/arb-sepolia.json`.
+**Decision:** Proceed with placeholder. README "Deploy addresses" table marks the F4 ClaimVerifier as "placeholder pending F5".
+
+---
+
+## [2026-04-25 F4] AdminOracle reveal-delay; commit-reveal MEV mitigation
+
+**Expected (per PRD §3.4 row "MEV on resolution"):** Commit-reveal with 60s gap between commit and reveal, then 60s gap between reveal and claim window opening.
+**Actual:** Implemented as two separate delays:
+
+- `AdminOracle.REVEAL_DELAY = 60 seconds`. Owner commits a hash; reveal must come ≥60s later, otherwise reverts `RevealTooEarly`.
+- `Market.CLAIM_OPEN_DELAY = 60 seconds`. After `freezePool` the claim window opens 60s later, gated via `claimWinnings` checking `block.timestamp < claimWindowOpensAt`.
+  The two delays compose to give a watcher ~120s of mempool visibility before any claim can land — sufficient on Arbitrum (~250ms blocks → ~480 blocks of visibility) for honest claimers to react.
+  **Reason:** Faithful to spec.
+  **Decision:** Ship.
+
+---
+
+## [2026-04-25 F4] One-bet-per-user-per-side cap relaxes the spec on refundIfInvalid
+
+**Expected:** `refundIfInvalid()` returns the user's bet handle.
+**Actual:** Users may bet on both sides per market (per F3's per-side cap rule), so `refundIfInvalid` may need to be called twice — once for YES, once for NO. Each call refunds whichever side is non-zero, then clears that handle. The third call reverts `NoBetToRefund`. F4's smoke + unit tests cover both single-side and both-sides refund paths. Could be unified into a single call returning both handles, but a single transfer + single event per call is cleaner.
+**Decision:** Two-call pattern accepted. Documented here so F6 frontend knows to call twice for users who bet both sides.
+
+---
+
+## [2026-04-25 F4] ChainGPT auditor pass — admin-centralization findings filed as KNOWN_LIMITATIONS
+
+**Expected (per F4 prompt step 10):** Run ChainGPT auditor; ≥medium-severity findings either fixed or filed.
+**Actual:** Auditor ran cleanly across all 10 contracts (TestUSDC, ConfidentialUSDC, Market, MarketRegistry, ResolutionOracle, AdminOracle, PreResolvedOracle, ChainlinkPriceOracle, ClaimVerifier, FeeVault). Report: `contracts/audits/chaingpt-2026-04-25-f4.md`. All HIGH-severity findings are admin-centralization concerns ("owner is a single EOA — consider multisig + time-lock"). These are standard hackathon-grade hardening recommendations, not exploitable vulnerabilities. Filed as accepted risk in `KNOWN_LIMITATIONS.md`. The actual code-level concerns (missing event emissions, gas optimizations) were either already addressed or noted as low-priority.
+**Decision:** Accept admin-centralization findings as known limitations for v1; production deployment would migrate ownership to a 2/3 admin multisig per §3.4 mitigation.
+
+---
+
 ## [2026-04-25 F3] ConfidentialUSDC ABI extended with EIP-7984 operator pattern — F2 deployment superseded
 
 **Expected (per F2 PRD §5.1):** ConfidentialUSDC ships with wrap/unwrap/confidentialTransfer; F2 considered "complete".

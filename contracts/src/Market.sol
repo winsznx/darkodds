@@ -7,6 +7,7 @@ import {HandleUtils} from "@iexec-nox/nox-protocol-contracts/contracts/shared/Ha
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IMarket} from "./interfaces/IMarket.sol";
 import {IConfidentialUSDC} from "./interfaces/IConfidentialUSDC.sol";
+import {IResolutionOracle} from "./interfaces/IResolutionOracle.sol";
 
 /// @title Market
 /// @notice Single confidential prediction market. Per-market clone (EIP-1167 minimal
@@ -27,9 +28,11 @@ contract Market is IMarket, ReentrancyGuard {
     error InvalidExpiry();
     error InvalidFee();
     error InvalidConfidentialUSDC();
+    error InvalidResolutionOracle();
     error InvalidAdmin();
     error InvalidOracleType(uint8 oracleType);
     error InvalidSide(uint8 side);
+    error InvalidOutcome(uint8 outcome);
     error WrongState(State expected, State actual);
     error MarketExpired();
     error MarketNotExpired();
@@ -37,7 +40,13 @@ contract Market is IMarket, ReentrancyGuard {
     error BatchIntervalNotElapsed(uint256 nextAt);
     error ClaimWindowNotElapsed(uint256 deadline);
     error NotInResolvableState();
-    error PhaseNotImplemented();
+    error OracleNotReady();
+    error OnlyAdmin();
+    error ClaimWindowNotOpen(uint256 opensAt);
+    error AlreadyClaimed();
+    error NoWinningPosition();
+    error NoBetToRefund();
+    error NotInvalid();
 
     // ====================================================================
     // Constants
@@ -50,6 +59,11 @@ contract Market is IMarket, ReentrancyGuard {
     /// @dev Per PRD §5.3 — griefing guard: if no resolution happens within
     ///      7 days of expiry, anyone can flip the market to Invalid.
     uint256 public constant CLAIM_WINDOW = 7 days;
+
+    /// @dev Per PRD §3.4 — MEV mitigation: claim window opens 60 seconds
+    ///      after the pool is frozen, giving claimers time to react without
+    ///      a watcher front-running the first claim.
+    uint256 public constant CLAIM_OPEN_DELAY = 60 seconds;
 
     /// @dev Max basis points (10_000 = 100%). Sanity check on protocolFeeBps.
     uint256 public constant MAX_FEE_BPS = 1_000; // 10% upper bound
@@ -71,6 +85,17 @@ contract Market is IMarket, ReentrancyGuard {
     uint8 private _outcome;
     address public admin;
     address public confidentialUSDC;
+    address public resolutionOracle;
+
+    /// @dev Plaintext snapshot of the YES/NO pool sizes after `freezePool`.
+    ///      Per PRD §6.1: post-resolution privacy on the aggregate is not
+    ///      required since the outcome is public and proportional payout
+    ///      requires the pool ratio. Per-bet handles remain ACL'd to users.
+    uint256 public yesPoolFrozen;
+    uint256 public noPoolFrozen;
+    uint256 public resolutionTs;
+    uint256 public poolFrozenTs;
+    uint256 public claimWindowOpensAt;
 
     /// @dev TEE-only encrypted accumulators. ACL: this contract only.
     ///      Reset to encrypted zero at every publishBatch.
@@ -104,12 +129,14 @@ contract Market is IMarket, ReentrancyGuard {
         uint256 expiryTs_,
         uint256 protocolFeeBps_,
         address confidentialUSDC_,
+        address resolutionOracle_,
         address admin_
     ) external {
         if (_initialized) revert AlreadyInitialized();
         if (expiryTs_ <= block.timestamp) revert InvalidExpiry();
         if (protocolFeeBps_ > MAX_FEE_BPS) revert InvalidFee();
         if (confidentialUSDC_ == address(0)) revert InvalidConfidentialUSDC();
+        if (resolutionOracle_ == address(0)) revert InvalidResolutionOracle();
         if (admin_ == address(0)) revert InvalidAdmin();
         if (oracleType_ > 2) revert InvalidOracleType(oracleType_);
 
@@ -122,6 +149,7 @@ contract Market is IMarket, ReentrancyGuard {
         claimWindowDeadline = expiryTs_ + CLAIM_WINDOW;
         protocolFeeBps = protocolFeeBps_;
         confidentialUSDC = confidentialUSDC_;
+        resolutionOracle = resolutionOracle_;
         admin = admin_;
         _state = State.Open;
         _outcome = uint8(Outcome.INVALID);
@@ -333,22 +361,153 @@ contract Market is IMarket, ReentrancyGuard {
     }
 
     // ====================================================================
-    // F4 surface — ABI present, intentionally reverts until F4 wires resolution
+    // Resolution
     // ====================================================================
 
-    function resolveAdmin(uint8 /* winningOutcome */) external pure {
-        revert PhaseNotImplemented();
+    function resolveOracle() external nonReentrant {
+        _preResolveTransitions();
+        IResolutionOracle oracle = IResolutionOracle(resolutionOracle);
+        if (!oracle.isReady(id)) revert OracleNotReady();
+        uint8 result = oracle.resolve(id);
+        _completeResolve(result);
     }
 
-    function resolveOracle() external pure {
-        revert PhaseNotImplemented();
+    function resolveAdmin(uint8 winningOutcome) external nonReentrant {
+        if (msg.sender != admin) revert OnlyAdmin();
+        if (winningOutcome > uint8(Outcome.INVALID)) revert InvalidOutcome(winningOutcome);
+        _preResolveTransitions();
+        _completeResolve(winningOutcome);
     }
 
-    function claimWinnings() external pure returns (bytes32) {
-        revert PhaseNotImplemented();
+    /// @dev Shared prologue for resolveOracle/resolveAdmin. Must transition
+    ///      Open/Closed → Resolving and flush any pending batch first.
+    function _preResolveTransitions() internal {
+        if (_state == State.Open) {
+            // Permissionless callers can effectively trigger a close-then-resolve
+            // path once expiry has passed; the spec allows resolveOracle to be
+            // a one-shot driver of the state machine.
+            if (block.timestamp < expiryTs) revert MarketNotExpired();
+            if (pendingBatchBetCount > 0) {
+                _publishBatchInternal();
+            }
+            _state = State.Closed;
+            emit MarketClosed(block.timestamp);
+        }
+        if (_state != State.Closed) revert WrongState(State.Closed, _state);
+        _state = State.Resolving;
+        resolutionTs = block.timestamp;
     }
 
-    function refundIfInvalid() external pure returns (bytes32) {
-        revert PhaseNotImplemented();
+    function _completeResolve(uint8 result) internal {
+        if (result > uint8(Outcome.INVALID)) revert InvalidOutcome(result);
+        _outcome = result;
+        if (result == uint8(Outcome.INVALID)) {
+            // Adapter explicitly returned INVALID — short-circuit straight to
+            // Invalid state so refundIfInvalid is the next user action.
+            _state = State.Invalid;
+            emit MarketInvalidated(block.timestamp);
+        } else {
+            // Stay in Resolving until freezePool moves us forward.
+            emit MarketResolved(result, block.timestamp);
+        }
+    }
+
+    // ====================================================================
+    // freezePool — convert public-decryptable handles to plaintext snapshots
+    // ====================================================================
+
+    function freezePool(
+        bytes calldata yesPoolDecryptionProof,
+        bytes calldata noPoolDecryptionProof
+    ) external nonReentrant {
+        if (_state != State.Resolving) revert WrongState(State.Resolving, _state);
+
+        // Validate the gateway-issued public-decryption proofs against the
+        // already-published handles (they were marked publicly-decryptable
+        // on every publishBatch). The proofs come from the off-chain Nox
+        // gateway via `publicDecrypt(handle)` — anyone can fetch them and
+        // submit, since the handles are public.
+        uint256 yesPlain = Nox.publicDecrypt(_yesPoolPublished, yesPoolDecryptionProof);
+        uint256 noPlain = Nox.publicDecrypt(_noPoolPublished, noPoolDecryptionProof);
+
+        yesPoolFrozen = yesPlain;
+        noPoolFrozen = noPlain;
+        poolFrozenTs = block.timestamp;
+        claimWindowOpensAt = block.timestamp + CLAIM_OPEN_DELAY;
+        _state = State.ClaimWindow;
+
+        emit PoolFrozen(yesPlain, noPlain, block.timestamp);
+        emit ClaimWindowOpened(claimWindowOpensAt);
+    }
+
+    // ====================================================================
+    // claimWinnings — F4 INTENT STUB. F5 wires payout math.
+    // ====================================================================
+
+    /// @notice F4 implementation records a claim intent and prevents
+    ///         double-claim. The actual proportional payout is computed in
+    ///         F5 by the TEE handler `computePayout(marketId, user)` reading
+    ///         the ClaimRecorded event log; the handler then emits a
+    ///         confidential transfer back to the user. The split is
+    ///         deliberate per PRD §6.1 — payout math requires TEE plaintext
+    ///         compute on encrypted user bets.
+    function claimWinnings() external nonReentrant {
+        if (_state != State.ClaimWindow) revert ClaimWindowNotOpen(claimWindowOpensAt);
+        if (block.timestamp < claimWindowOpensAt) revert ClaimWindowNotOpen(claimWindowOpensAt);
+        if (_claimed[msg.sender]) revert AlreadyClaimed();
+
+        // User must have a non-zero bet on the winning side.
+        bool hasYes = Nox.isInitialized(_yesBet[msg.sender]);
+        bool hasNo = Nox.isInitialized(_noBet[msg.sender]);
+        bool wins = (_outcome == uint8(Outcome.YES) && hasYes) || (_outcome == uint8(Outcome.NO) && hasNo);
+        if (!wins) revert NoWinningPosition();
+
+        _claimed[msg.sender] = true;
+        emit ClaimRecorded(msg.sender, _outcome, block.timestamp);
+    }
+
+    function hasClaimed(address user) external view returns (bool) {
+        return _claimed[user];
+    }
+
+    // ====================================================================
+    // refundIfInvalid — full F4 implementation
+    // ====================================================================
+
+    function refundIfInvalid() external nonReentrant returns (bytes32 refundHandle) {
+        if (_state != State.Invalid) revert NotInvalid();
+        if (_claimed[msg.sender]) revert AlreadyClaimed();
+
+        // Pick whichever side the user has a non-zero bet on. Users may bet
+        // on both sides per market; refund both via two refunds (the user
+        // calls this once, contract refunds the FIRST initialized side; user
+        // calls again to refund the second). To keep state machine simple,
+        // we refund ONE side per call and only mark `_claimed` once both
+        // sides are zeroed — but for v1 simplicity we refund a single side
+        // per call without claimed bookkeeping; the second call refunds the
+        // other side, then a third call reverts NoBetToRefund. This is
+        // acceptable since per-side bet limit is one per user.
+        euint256 betHandle;
+        if (Nox.isInitialized(_yesBet[msg.sender])) {
+            betHandle = _yesBet[msg.sender];
+            _yesBet[msg.sender] = euint256.wrap(bytes32(0));
+        } else if (Nox.isInitialized(_noBet[msg.sender])) {
+            betHandle = _noBet[msg.sender];
+            _noBet[msg.sender] = euint256.wrap(bytes32(0));
+        } else {
+            revert NoBetToRefund();
+        }
+
+        // Grant cUSDC transient ACL on the bet handle so its internal
+        // safeSub on the market's confidential balance works (canonical
+        // cross-contract handle pattern, see F3 BUG_LOG).
+        Nox.allowTransient(betHandle, confidentialUSDC);
+
+        // Transfer the bet handle (= user's original deposit handle) back
+        // from this market to the user via cUSDC.confidentialTransfer.
+        IConfidentialUSDC(confidentialUSDC).confidentialTransfer(msg.sender, betHandle);
+
+        refundHandle = euint256.unwrap(betHandle);
+        emit Refunded(msg.sender, refundHandle);
     }
 }

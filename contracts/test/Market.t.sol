@@ -10,6 +10,9 @@ import {TestHelper} from "@iexec-nox/nox-protocol-contracts/test/utils/TestHelpe
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Market} from "../src/Market.sol";
 import {MarketRegistry} from "../src/MarketRegistry.sol";
+import {ResolutionOracle} from "../src/ResolutionOracle.sol";
+import {AdminOracle} from "../src/oracles/AdminOracle.sol";
+import {PreResolvedOracle} from "../src/oracles/PreResolvedOracle.sol";
 import {IMarket} from "../src/interfaces/IMarket.sol";
 import {ConfidentialUSDC} from "../src/ConfidentialUSDC.sol";
 import {TestUSDC} from "../src/TestUSDC.sol";
@@ -20,6 +23,9 @@ contract MarketTest is Test {
     TestUSDC private usdc;
     Market private market;
     MarketRegistry private registry;
+    ResolutionOracle private resolutionOracle;
+    AdminOracle private adminOracle;
+    PreResolvedOracle private preOracle;
 
     address private constant OWNER = address(0xA11CE);
     uint256 private constant GATEWAY_KEY = 0xBEEF;
@@ -30,6 +36,8 @@ contract MarketTest is Test {
 
     uint256 private constant BET_AMOUNT = 50 * 1e6; // 50 tUSDC
     uint256 private expiryTs;
+    uint256 private mid; // market.id() cached — `market.id()` inside an arg list
+    // consumes vm.prank() one frame too early.
 
     function setUp() public {
         noxCompute = TestHelper.deploy(OWNER, vm.addr(GATEWAY_KEY));
@@ -37,12 +45,26 @@ contract MarketTest is Test {
         cusdc = new ConfidentialUSDC(IERC20(address(usdc)), "ctUSDC", "ctUSDC");
 
         Market impl = new Market();
-        registry = new MarketRegistry(address(impl), address(cusdc), OWNER);
+        resolutionOracle = new ResolutionOracle(OWNER);
+        adminOracle = new AdminOracle(OWNER);
+        preOracle = new PreResolvedOracle(OWNER);
+        registry = new MarketRegistry(address(impl), address(cusdc), address(resolutionOracle), OWNER);
 
         expiryTs = block.timestamp + 7 days;
         vm.prank(OWNER);
-        (, address m) = registry.createMarket("Will X happen?", "admin-resolved", 0, expiryTs, 200);
+        (uint256 createdId, address m) = registry.createMarket(
+            "Will X happen?",
+            "admin-resolved",
+            0,
+            expiryTs,
+            200
+        );
         market = Market(m);
+        mid = createdId;
+
+        // Wire AdminOracle as the adapter for this market id by default.
+        vm.prank(OWNER);
+        resolutionOracle.setAdapter(mid, address(adminOracle));
 
         // Top up alice + bob with tUSDC and wrap into cUSDC.
         vm.startPrank(OWNER);
@@ -114,33 +136,98 @@ contract MarketTest is Test {
 
     function test_Initialize_RevertsOnSecondCall() public {
         vm.expectRevert(Market.AlreadyInitialized.selector);
-        market.initialize(99, "x", "y", 0, block.timestamp + 1 days, 100, address(cusdc), OWNER);
+        market.initialize(
+            99,
+            "x",
+            "y",
+            0,
+            block.timestamp + 1 days,
+            100,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
     }
 
     function test_Initialize_RawImplCanBeInitialized() public {
-        // The raw (unproxied) implementation is also init-locked once initialized.
         Market raw = new Market();
-        raw.initialize(0, "q", "c", 0, block.timestamp + 1 days, 100, address(cusdc), OWNER);
+        raw.initialize(
+            0,
+            "q",
+            "c",
+            0,
+            block.timestamp + 1 days,
+            100,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
         vm.expectRevert(Market.AlreadyInitialized.selector);
-        raw.initialize(0, "q", "c", 0, block.timestamp + 1 days, 100, address(cusdc), OWNER);
+        raw.initialize(
+            0,
+            "q",
+            "c",
+            0,
+            block.timestamp + 1 days,
+            100,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
     }
 
     function test_Initialize_RevertsOnPastExpiry() public {
         Market raw = new Market();
         vm.expectRevert(Market.InvalidExpiry.selector);
-        raw.initialize(0, "q", "c", 0, block.timestamp, 100, address(cusdc), OWNER);
+        raw.initialize(
+            0,
+            "q",
+            "c",
+            0,
+            block.timestamp,
+            100,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
     }
 
     function test_Initialize_RevertsOnExcessiveFee() public {
         Market raw = new Market();
         vm.expectRevert(Market.InvalidFee.selector);
-        raw.initialize(0, "q", "c", 0, block.timestamp + 1 days, 1_001, address(cusdc), OWNER);
+        raw.initialize(
+            0,
+            "q",
+            "c",
+            0,
+            block.timestamp + 1 days,
+            1_001,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
     }
 
     function test_Initialize_RevertsOnInvalidOracleType() public {
         Market raw = new Market();
         vm.expectRevert(abi.encodeWithSelector(Market.InvalidOracleType.selector, uint8(3)));
-        raw.initialize(0, "q", "c", 3, block.timestamp + 1 days, 100, address(cusdc), OWNER);
+        raw.initialize(
+            0,
+            "q",
+            "c",
+            3,
+            block.timestamp + 1 days,
+            100,
+            address(cusdc),
+            address(resolutionOracle),
+            OWNER
+        );
+    }
+
+    function test_Initialize_RevertsOnZeroOracle() public {
+        Market raw = new Market();
+        vm.expectRevert(Market.InvalidResolutionOracle.selector);
+        raw.initialize(0, "q", "c", 0, block.timestamp + 1 days, 100, address(cusdc), address(0), OWNER);
     }
 
     // ====================================================================
@@ -418,17 +505,254 @@ contract MarketTest is Test {
     }
 
     // ====================================================================
-    // F4 stubs
+    // Resolution + Claim (F4)
     // ====================================================================
 
-    function test_F4Stubs_AllRevert() public {
-        vm.expectRevert(Market.PhaseNotImplemented.selector);
-        market.resolveAdmin(1);
-        vm.expectRevert(Market.PhaseNotImplemented.selector);
+    /// @dev Drives a market from Open through Resolved with a YES outcome via
+    ///      the AdminOracle commit-reveal flow + freezePool with gateway-issued
+    ///      decryption proofs, leaving it in ClaimWindow once `CLAIM_OPEN_DELAY`
+    ///      has passed. Used by the claim/refund test cases.
+    function _resolveYes(uint256 yesTotal, uint256 noTotal) internal {
+        // Place a YES bet so there's something to claim.
+        _placeBet(alice, 1, BET_AMOUNT);
+
+        // Close + flush + AdminOracle commit-reveal.
+        vm.warp(expiryTs);
+        market.closeMarket();
+
+        bytes32 salt = keccak256("v1");
+        bytes32 commitment = keccak256(abi.encode(uint8(1), salt));
+        vm.prank(OWNER);
+        adminOracle.commit(mid, commitment);
+        vm.warp(block.timestamp + adminOracle.REVEAL_DELAY() + 1);
+        vm.prank(OWNER);
+        adminOracle.reveal(mid, uint8(1), salt);
+
         market.resolveOracle();
-        vm.expectRevert(Market.PhaseNotImplemented.selector);
+        assertEq(uint8(market.state()), uint8(IMarket.State.Resolving));
+        assertEq(market.outcome(), uint8(1));
+
+        // Build gateway proofs asserting yesPool/noPool plaintexts.
+        bytes32 yesHandle = euint256.unwrap(market.yesPoolPublishedHandle());
+        bytes32 noHandle = euint256.unwrap(market.noPoolPublishedHandle());
+        bytes memory yesProof = TestHelper.buildDecryptionProof(yesHandle, abi.encode(yesTotal), GATEWAY_KEY);
+        bytes memory noProof = TestHelper.buildDecryptionProof(noHandle, abi.encode(noTotal), GATEWAY_KEY);
+
+        market.freezePool(yesProof, noProof);
+        assertEq(uint8(market.state()), uint8(IMarket.State.ClaimWindow));
+        assertEq(market.yesPoolFrozen(), yesTotal);
+        assertEq(market.noPoolFrozen(), noTotal);
+
+        // Roll past the claim-open delay so claimWinnings is callable.
+        vm.warp(market.claimWindowOpensAt() + 1);
+    }
+
+    function test_ResolveAdmin_OnlyAdmin() public {
+        vm.warp(expiryTs);
+        market.closeMarket();
+        vm.expectRevert(Market.OnlyAdmin.selector);
+        vm.prank(alice);
+        market.resolveAdmin(1);
+    }
+
+    function test_ResolveAdmin_HappyPath() public {
+        vm.warp(expiryTs);
+        market.closeMarket();
+        vm.prank(OWNER);
+        market.resolveAdmin(1);
+        assertEq(uint8(market.state()), uint8(IMarket.State.Resolving));
+        assertEq(market.outcome(), uint8(1));
+        assertEq(market.resolutionTs(), block.timestamp);
+    }
+
+    function test_ResolveAdmin_RevertsOnInvalidOutcome() public {
+        vm.warp(expiryTs);
+        market.closeMarket();
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Market.InvalidOutcome.selector, uint8(99)));
+        market.resolveAdmin(99);
+    }
+
+    function test_ResolveOracle_BeforeExpiryReverts() public {
+        vm.expectRevert(Market.MarketNotExpired.selector);
+        market.resolveOracle();
+    }
+
+    function test_ResolveOracle_AdminOracleNotReadyReverts() public {
+        vm.warp(expiryTs);
+        market.closeMarket();
+        vm.expectRevert(Market.OracleNotReady.selector);
+        market.resolveOracle();
+    }
+
+    function test_ResolveOracle_PreResolved_HappyPath() public {
+        // Re-wire to PreResolvedOracle for this market.
+        vm.prank(OWNER);
+        preOracle.configure(mid, uint8(1));
+        vm.prank(OWNER);
+        resolutionOracle.setAdapter(mid, address(preOracle));
+
+        vm.warp(expiryTs);
+        market.resolveOracle();
+        assertEq(uint8(market.state()), uint8(IMarket.State.Resolving));
+        assertEq(market.outcome(), uint8(1));
+    }
+
+    function test_ResolveOracle_AdminOracle_FullFlow() public {
+        vm.warp(expiryTs);
+        market.closeMarket();
+
+        bytes32 salt = keccak256("flow-1");
+        bytes32 commitment = keccak256(abi.encode(uint8(1), salt));
+        vm.prank(OWNER);
+        adminOracle.commit(mid, commitment);
+        vm.warp(block.timestamp + adminOracle.REVEAL_DELAY() + 1);
+        vm.prank(OWNER);
+        adminOracle.reveal(mid, uint8(1), salt);
+
+        market.resolveOracle();
+        assertEq(uint8(market.state()), uint8(IMarket.State.Resolving));
+    }
+
+    function test_ResolveOracle_INVALID_GoesStraightToInvalid() public {
+        vm.prank(OWNER);
+        preOracle.configure(mid, uint8(2)); // INVALID
+        vm.prank(OWNER);
+        resolutionOracle.setAdapter(mid, address(preOracle));
+
+        vm.warp(expiryTs);
+        market.resolveOracle();
+        assertEq(uint8(market.state()), uint8(IMarket.State.Invalid));
+    }
+
+    function test_FreezePool_RevertsBeforeResolution() public {
+        bytes memory empty = "";
+        vm.expectRevert(
+            abi.encodeWithSelector(Market.WrongState.selector, IMarket.State.Resolving, IMarket.State.Open)
+        );
+        market.freezePool(empty, empty);
+    }
+
+    function test_FreezePool_HappyPath() public {
+        _resolveYes(BET_AMOUNT, 0); // alice bet 1 unit on YES, no NO bets
+        // _resolveYes asserts state == ClaimWindow and frozen totals
+    }
+
+    function test_ClaimWinnings_HappyPath_RecordsClaim() public {
+        _resolveYes(BET_AMOUNT, 0);
+        vm.recordLogs();
+        vm.prank(alice);
         market.claimWinnings();
-        vm.expectRevert(Market.PhaseNotImplemented.selector);
+        assertTrue(market.hasClaimed(alice));
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("ClaimRecorded(address,uint8,uint256)");
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(market) && logs[i].topics[0] == topic) found = true;
+        }
+        assertTrue(found, "ClaimRecorded not emitted");
+    }
+
+    function test_ClaimWinnings_RevertsBeforeClaimWindow() public {
+        _placeBet(alice, 1, BET_AMOUNT);
+        vm.warp(expiryTs);
+        market.closeMarket();
+        vm.prank(OWNER);
+        market.resolveAdmin(1);
+        // State is Resolving; freezePool not called → claim must revert.
+        vm.expectRevert(abi.encodeWithSelector(Market.ClaimWindowNotOpen.selector, uint256(0)));
+        vm.prank(alice);
+        market.claimWinnings();
+    }
+
+    function test_ClaimWinnings_RevertsOnDoubleClaim() public {
+        _resolveYes(BET_AMOUNT, 0);
+        vm.prank(alice);
+        market.claimWinnings();
+        vm.expectRevert(Market.AlreadyClaimed.selector);
+        vm.prank(alice);
+        market.claimWinnings();
+    }
+
+    function test_ClaimWinnings_LoserCannotClaim() public {
+        // Bob bet on NO — alice on YES.
+        _placeBet(bob, 0, BET_AMOUNT);
+        _resolveYes(BET_AMOUNT, BET_AMOUNT);
+        vm.expectRevert(Market.NoWinningPosition.selector);
+        vm.prank(bob);
+        market.claimWinnings();
+    }
+
+    function test_ClaimWinnings_NonBettorCannotClaim() public {
+        _resolveYes(BET_AMOUNT, 0);
+        // carol never placed a bet.
+        vm.expectRevert(Market.NoWinningPosition.selector);
+        vm.prank(carol);
+        market.claimWinnings();
+    }
+
+    function test_RefundIfInvalid_RevertsWhenNotInvalid() public {
+        vm.expectRevert(Market.NotInvalid.selector);
+        vm.prank(alice);
+        market.refundIfInvalid();
+    }
+
+    function test_RefundIfInvalid_HappyPath() public {
+        _placeBet(alice, 1, BET_AMOUNT);
+        // Simulate adapter-returned-INVALID path.
+        vm.prank(OWNER);
+        preOracle.configure(mid, uint8(2));
+        vm.prank(OWNER);
+        resolutionOracle.setAdapter(mid, address(preOracle));
+        vm.warp(expiryTs);
+        market.resolveOracle();
+        assertEq(uint8(market.state()), uint8(IMarket.State.Invalid));
+
+        bytes32 prevYesBet = euint256.unwrap(market.yesBet(alice));
+        assertTrue(prevYesBet != bytes32(0));
+
+        vm.recordLogs();
+        vm.prank(alice);
+        bytes32 refundHandle = market.refundIfInvalid();
+        assertEq(refundHandle, prevYesBet);
+
+        // alice's yesBet is cleared.
+        assertEq(euint256.unwrap(market.yesBet(alice)), bytes32(0));
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("Refunded(address,bytes32)");
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(market) && logs[i].topics[0] == topic) found = true;
+        }
+        assertTrue(found, "Refunded not emitted");
+    }
+
+    function test_RefundIfInvalid_BothSidesSequentially() public {
+        _placeBet(alice, 1, BET_AMOUNT);
+        _placeBet(alice, 0, BET_AMOUNT);
+        vm.prank(OWNER);
+        preOracle.configure(mid, uint8(2));
+        vm.prank(OWNER);
+        resolutionOracle.setAdapter(mid, address(preOracle));
+        vm.warp(expiryTs);
+        market.resolveOracle();
+
+        vm.prank(alice);
+        market.refundIfInvalid();
+        // First call refunds YES.
+        assertEq(euint256.unwrap(market.yesBet(alice)), bytes32(0));
+        assertTrue(euint256.unwrap(market.noBet(alice)) != bytes32(0));
+
+        vm.prank(alice);
+        market.refundIfInvalid();
+        // Second call refunds NO.
+        assertEq(euint256.unwrap(market.noBet(alice)), bytes32(0));
+
+        // Third call reverts: nothing left.
+        vm.expectRevert(Market.NoBetToRefund.selector);
+        vm.prank(alice);
         market.refundIfInvalid();
     }
 }

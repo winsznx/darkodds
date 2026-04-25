@@ -373,6 +373,62 @@ await handleClient.encryptInput(value, solidityType, applicationContract);
 
 ---
 
+## [2026-04-26 F5] §11 F5 — Nox has no custom handler runtime; all four TEE handlers superseded by on-chain Solidity + Nox arithmetic
+
+**Expected (per PRD §11 F5 + F5 prompt):** Build and deploy four TEE handlers as separate worker
+images: `validateBet`, `freezePool`, `computePayout` (the wedge), `signAttestation`. Capture the
+real TDX measurement post-deploy, redeploy ClaimVerifier with that measurement, wire
+Market.claimWinnings to call ClaimVerifier.verifyAttestation before releasing payout.
+**Actual:** Runtime discovery (docs at docs.iex.ec/nox-protocol/protocol/runner + ingestor +
+global-architecture-overview) confirmed:
+
+1. The Nox Runner is a **fixed Rust service in Intel TDX** managed by the protocol infrastructure.
+   Developers **cannot deploy custom handler images** — there is no user-facing TDX worker API.
+2. All TEE compute is expressed through Solidity library primitives: `Nox.add`, `Nox.mul`,
+   `Nox.div`, `Nox.sub`, `Nox.select`, `Nox.toEuint256`, `Nox.fromExternal`, `Nox.publicDecrypt`,
+   and token ops. The Runner processes operations by pulling events emitted by the library contracts.
+3. `@iexec-nox/handle` (the only @iexec-nox npm package) is a client-side JS SDK for encrypting
+   inputs / decrypting outputs — not a handler deployment SDK.
+
+Disposition of each handler:
+
+- **validateBet** — MOOT. Already inline in Market.placeBet via Nox.fromExternal (F3).
+- **freezePool** — MOOT. Already inline in Market.freezePool via Nox.publicDecrypt (F4).
+- **computePayout** — SUPERSEDED. Implemented on-chain in Market.claimWinnings using
+  Nox.mul(userBet, totalPool) / winningSide followed by fee deduction via Nox.mul/div/sub.
+- **signAttestation / ClaimVerifier gate** — SUPERSEDED. ClaimVerifier stays deployed as an
+  audit-trail artifact (F4 measurement placeholder). claimWinnings does NOT call verifyAttestation
+  because there is no application-level TEE to attest. The Nox Runner's TDX measurement belongs
+  to the protocol infrastructure.
+
+**Reason:** PRD §11 F5 was written against iExec's older SDK model (iApp worker deployment).
+Nox v0.1.0 introduced a different computation model: protocol-native primitives only.
+**Impact:** tee-handlers/RUNTIME_DISCOVERY.md documents the finding. No handler images built,
+no TDX measurement captured. claimWinnings is fully functional on-chain. MarketImpl_v4 deployed
+and registered via Safe-mediated setMarketImplementation.
+**Decision:** On-chain Nox arithmetic is more correct than the original TEE handler plan —
+computation is TEE-attested at the protocol level without per-application measurement management.
+
+---
+
+## [2026-04-26 F5] §6.1 FeeVault direct transfer deferred — fee stays in market cUSDC balance
+
+**Expected (per PRD §6.1 + FeeVault NatSpec):** Market.claimWinnings computes the protocol fee
+and calls FeeVault.receiveFee(amount) with a plaintext uint256.
+**Actual:** FeeVault.receiveFee takes plaintext, but the per-claim fee is an encrypted euint256
+handle computed via Nox.mul/div. Exposing it as plaintext requires a publicDecrypt round-trip
+(async Nox operation → Runner processes → gateway issues proof → second tx).
+**Reason:** Avoid two-tx claim UX for a testnet demo. Plaintext fee decryption adds operational
+complexity without changing the trust model.
+**Impact:** Fee handle is ACL-granted to the market contract and stays in the market's cUSDC
+balance. The ClaimSettled event emits the encrypted fee handle for off-chain accounting. Post-F5,
+the Safe-owned admin can drain via cUSDC.confidentialTransfer(feeVault, feeHandle) once
+publicDecrypt proofs are available.
+**Decision:** Deferred. KNOWN_LIMITATIONS updated. Production: FeeVault accepts confidential
+cUSDC transfers (requires ERC-7984-aware FeeVault redesign).
+
+---
+
 ## [2026-04-25 F4.5] §11 F4.5 — ChainGPT credits exhausted on re-audit; F4 audit + Slither + smoke-f45 form the F4.5 evidence triad
 
 **Expected (per F4.5 prompt step 3):** Re-run ChainGPT auditor on contracts modified in F4.5 (Market.sol, MarketRegistry.sol).

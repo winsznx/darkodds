@@ -48,6 +48,10 @@ interface IMarket {
     event ClaimWindowOpened(uint256 timestamp);
     event MarketInvalidated(uint256 timestamp);
     event ClaimRecorded(address indexed user, uint8 winningSide, uint256 timestamp);
+    /// @dev Emitted when a winning claim is settled on-chain (F5+). `payoutHandle` is
+    ///      the euint256 handle of the net payout sent to the user; `feeHandle` is the
+    ///      encrypted fee retained in the market's cUSDC balance.
+    event ClaimSettled(address indexed user, uint8 outcome, bytes32 payoutHandle, bytes32 feeHandle);
     event Refunded(address indexed user, bytes32 refundHandle);
 
     // ====================================================================
@@ -158,12 +162,12 @@ interface IMarket {
     ///         the pool structure). Per-bet handles remain ACL'd to users.
     function freezePool(bytes calldata yesPoolDecryptionProof, bytes calldata noPoolDecryptionProof) external;
 
-    /// @notice Claim a winning position. F4 ships an intent stub: emits the
-    ///         claim event and marks the user as claimed. F5's TEE handler
-    ///         reads these events, computes the proportional payout in
-    ///         plaintext, and triggers a confidential transfer back to the
-    ///         user's cUSDC handle. The split is deliberate — payout math
-    ///         requires TEE plaintext compute on encrypted user bets.
+    /// @notice Claim a winning position. F5 implementation: computes the
+    ///         proportional pari-mutuel payout on-chain via Nox arithmetic
+    ///         (Nox.mul / Nox.div / Nox.sub) and triggers a confidential
+    ///         cUSDC transfer to the caller. The protocol fee is retained in
+    ///         the market's cUSDC balance (FeeVault collection deferred per
+    ///         DRIFT_LOG). Emits ClaimSettled with encrypted payout + fee handles.
     function claimWinnings() external;
 
     /// @notice Full F4 implementation: market state must be Invalid, user must

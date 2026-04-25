@@ -24,6 +24,8 @@
     "deploy:multisig": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-multisig.ts'",
     "deploy:f45": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f45.ts'",
     "smoke:f45": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f45.ts'",
+    "deploy:f5": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-f5.ts'",
+    "smoke:f5": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/smoke-f5.ts'",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"

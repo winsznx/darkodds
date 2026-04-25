@@ -97,12 +97,36 @@ edge case for non-crypto-native users on testnet. Production fix is to
 pin ACLs against Privy account IDs via signature, not raw signer
 addresses — out of scope for v1.
 
+## FeeVault fee collection deferred (F5)
+
+`Market.claimWinnings` computes an encrypted fee handle via Nox arithmetic but does
+not call `FeeVault.receiveFee(amount)` directly. `FeeVault.receiveFee` takes a
+plaintext `uint256`; converting the encrypted fee to plaintext requires a Nox
+`publicDecrypt` round-trip (async — two transactions per claim). Adding that would
+split the claim UX across two transactions for a testnet demo.
+
+v1 acceptance: fee handle is ACL-granted to the market contract and stays in the
+market's cUSDC balance. `ClaimSettled` emits the encrypted fee handle for off-chain
+accounting. Post-demo, the Safe-owned admin can drain accumulated fees via
+`cUSDC.confidentialTransfer(feeVault, feeHandle)` once publicDecrypt proofs are
+available. See DRIFT_LOG.md F5 entry.
+
+## Nox has no custom handler runtime — F5 scope revised (F5)
+
+PRD §11 F5 planned four TEE handlers as deployable worker images. The Nox protocol
+v0.1.0 does not support custom handler deployment — the Runner is a fixed Rust service
+in Intel TDX managed by the protocol infrastructure. All encrypted computation uses
+Solidity library calls that the Runner processes as events.
+
+v1 acceptance: `claimWinnings` payout is fully correct using on-chain Nox arithmetic.
+TEE attestation is at the protocol level. See `tee-handlers/RUNTIME_DISCOVERY.md`.
+
 ## Per-user, per-side, per-market bet cardinality cap
 
 A user may have at most one bet on YES and one on NO per market. Cumulative
 same-side bets via `Nox.add(existing, new)` are technically possible but
-complicate the F5 claim accounting. v1 keeps the simpler one-per-side cap;
-F5 may relax once the claim path is live and the merge semantic is decided.
+the F5 claim accounting is live and correct for the one-per-side model.
+v1 keeps the cap; additive same-side bets are post-MVP scope.
 
 ## Single deployer for testnet wallet
 

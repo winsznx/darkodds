@@ -273,3 +273,17 @@ forge test --root contracts --match-test test_PlaceBet_HappyPath_Yes
 
 **Time to fix:** ~3 min.
 **Tags:** #infra #foundry #verify
+
+---
+
+## [2026-04-26 F5] ConfidentialTransfer event topic used wrong type string
+
+**Bug:** `test_ClaimWinnings_F5_ConfidentialTransferEmitted` failed with
+"ConfidentialTransfer market->alice not emitted". The test computed the topic hash
+using `keccak256("ConfidentialTransfer(address,address,uint256)")`.
+**Root cause:** `euint256` is `type euint256 is bytes32` — a UDVT wrapping `bytes32`.
+Solidity uses the underlying canonical type in event signatures; the correct ABI
+string is `ConfidentialTransfer(address,address,bytes32)` not `uint256`.
+**Fix:** Changed topic hash string to `keccak256("ConfidentialTransfer(address,address,bytes32)")`.
+**Time to fix:** ~2 min.
+**Tags:** #test #events #UDVT

@@ -692,6 +692,64 @@ contract MarketTest is Test {
         market.claimWinnings();
     }
 
+    // ---- F5 payout tests ----
+
+    function test_ClaimWinnings_F5_EmitsClaimSettled() public {
+        _resolveYes(BET_AMOUNT, 0);
+        vm.recordLogs();
+        vm.prank(alice);
+        market.claimWinnings();
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 settledTopic = keccak256("ClaimSettled(address,uint8,bytes32,bytes32)");
+        bool foundSettled;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(market) && logs[i].topics[0] == settledTopic) {
+                foundSettled = true;
+                // payoutHandle (data[0]) and feeHandle (data[32]) must be non-zero Nox handles.
+                bytes32 payoutHandle = abi.decode(logs[i].data, (bytes32));
+                assertTrue(payoutHandle != bytes32(0), "payoutHandle is zero");
+            }
+        }
+        assertTrue(foundSettled, "ClaimSettled not emitted");
+    }
+
+    function test_ClaimWinnings_F5_ConfidentialTransferEmitted() public {
+        _resolveYes(BET_AMOUNT, 0);
+        vm.recordLogs();
+        vm.prank(alice);
+        market.claimWinnings();
+
+        // Verify cUSDC emitted ConfidentialTransfer from market → alice.
+        // euint256 is `type euint256 is bytes32` so the ABI canonical type is bytes32.
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 transferTopic = keccak256("ConfidentialTransfer(address,address,bytes32)");
+        bool foundTransfer;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(cusdc) && logs[i].topics[0] == transferTopic) {
+                address from = address(uint160(uint256(logs[i].topics[1])));
+                address to = address(uint160(uint256(logs[i].topics[2])));
+                if (from == address(market) && to == alice) foundTransfer = true;
+            }
+        }
+        assertTrue(foundTransfer, "ConfidentialTransfer market->alice not emitted");
+    }
+
+    function test_ClaimWinnings_F5_BothSides_WinnerClaims() public {
+        // Bob bets NO, alice bets YES. YES wins.
+        _placeBet(bob, 0, BET_AMOUNT);
+        _resolveYes(BET_AMOUNT, BET_AMOUNT);
+
+        vm.prank(alice);
+        market.claimWinnings();
+        assertTrue(market.hasClaimed(alice));
+
+        // Bob (loser) cannot claim.
+        vm.expectRevert(Market.NoWinningPosition.selector);
+        vm.prank(bob);
+        market.claimWinnings();
+    }
+
     function test_RefundIfInvalid_RevertsWhenNotInvalid() public {
         vm.expectRevert(Market.NotInvalid.selector);
         vm.prank(alice);

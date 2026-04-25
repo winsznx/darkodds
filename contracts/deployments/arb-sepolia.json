@@ -3,7 +3,7 @@
   "contracts": {
     "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
     "ConfidentialUSDC": "0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
-    "MarketImplementation": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
+    "MarketImplementation": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
     "MarketRegistry": "0xe66b2f638f5db738243a44f7aeb1cccc18906dd1",
     "ResolutionOracle": "0x27dc556b9e6c1a031bd779e9524936f70b66b96c",
     "AdminOracle": "0x96b6ecc138a231ddff9e8ea856fb8869b4be103f",
@@ -14,7 +14,8 @@
     "Market_1": "0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
     "Market_2": "0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
     "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229",
-    "MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea"
+    "MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
+    "MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
   "deployedAt": 1777129921,
@@ -29,7 +30,8 @@
     "FeeVault": "https://sepolia.arbiscan.io/address/0x4fc729a98824bf2e6da4bba903ead73432afa351",
     "Market_1": "https://sepolia.arbiscan.io/address/0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
     "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
-    "MarketImplementation_v3": "https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea"
+    "MarketImplementation_v3": "https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
+    "MarketImplementation_v4": "https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a"
   },
   "notes": {
     "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
@@ -41,7 +43,9 @@
     "f4_chainlink_skip": "Chainlink data feeds are not deployed on Arb Sepolia (verified against smartcontractkit/hardhat-chainlink registry). ChainlinkPriceOracle is deployed for mainnet completeness; the BTC-resolved demo market is omitted from testnet per PRD §0.5 'no mocks'.",
     "f4_claim_verifier_placeholder": "ClaimVerifier pinned to keccak256('DARKODDS_F4_DEMO_MEASUREMENT'). F5 redeploys with the real TDX measurement once the TEE handler image is built.",
     "f4_legacy_MarketImplementation": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
-    "f45_marketimpl_swap_tx": "0x89363f9cb8222d83da433e587e07d96bea47c8777457566272ea8adecd6a1060"
+    "f45_marketimpl_swap_tx": "0x89363f9cb8222d83da433e587e07d96bea47c8777457566272ea8adecd6a1060",
+    "f5_legacy_MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
+    "f5_marketimpl_swap_tx": "0x03461829bf19ebe1f137b1d53044c22addba9cdbdb9156d28bb69cfc893d98ff"
   },
   "safe": {
     "address": "0x042a49628f8A107C476B01bE8edEbB38110FA332",

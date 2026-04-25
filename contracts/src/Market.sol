@@ -452,22 +452,28 @@ contract Market is IMarket, ReentrancyGuard {
     }
 
     // ====================================================================
-    // claimWinnings — F4 INTENT STUB. F5 wires payout math.
+    // claimWinnings — F5 on-chain payout via Nox arithmetic
     // ====================================================================
 
-    /// @notice F4 implementation records a claim intent and prevents
-    ///         double-claim. The actual proportional payout is computed in
-    ///         F5 by the TEE handler `computePayout(marketId, user)` reading
-    ///         the ClaimRecorded event log; the handler then emits a
-    ///         confidential transfer back to the user. The split is
-    ///         deliberate per PRD §6.1 — payout math requires TEE plaintext
-    ///         compute on encrypted user bets.
+    /// @notice Proportional pari-mutuel payout computed entirely on-chain via
+    ///         Nox encrypted arithmetic. No TEE handler needed — the Nox Runner
+    ///         executes all encrypted ops inside its own Intel TDX environment.
+    ///
+    ///         Formula: gross = (userBet * totalPool) / winningSide
+    ///                  fee   = (gross * protocolFeeBps) / 10_000
+    ///                  net   = gross - fee
+    ///
+    ///         The net payout is confidentialTransfer'd to the caller via cUSDC.
+    ///         The fee handle is ACL-granted to this contract (admin drains post-
+    ///         claim via confidentialTransfer to FeeVault, see DRIFT_LOG F5).
+    ///
+    ///         Per DRIFT_LOG F5: Nox has no custom handler deployment surface;
+    ///         on-chain arithmetic is the canonical computation path.
     function claimWinnings() external nonReentrant {
         if (_state != State.ClaimWindow) revert ClaimWindowNotOpen(claimWindowOpensAt);
         if (block.timestamp < claimWindowOpensAt) revert ClaimWindowNotOpen(claimWindowOpensAt);
         if (_claimed[msg.sender]) revert AlreadyClaimed();
 
-        // User must have a non-zero bet on the winning side.
         bool hasYes = Nox.isInitialized(_yesBet[msg.sender]);
         bool hasNo = Nox.isInitialized(_noBet[msg.sender]);
         bool wins = (_outcome == uint8(Outcome.YES) && hasYes) || (_outcome == uint8(Outcome.NO) && hasNo);
@@ -475,6 +481,40 @@ contract Market is IMarket, ReentrancyGuard {
 
         _claimed[msg.sender] = true;
         emit ClaimRecorded(msg.sender, _outcome, block.timestamp);
+
+        euint256 userBet = (_outcome == uint8(Outcome.YES)) ? _yesBet[msg.sender] : _noBet[msg.sender];
+        uint256 totalPool = yesPoolFrozen + noPoolFrozen;
+        uint256 winningSide = (_outcome == uint8(Outcome.YES)) ? yesPoolFrozen : noPoolFrozen;
+
+        // winningSide == 0 is unreachable: wins == true implies a non-zero bet on
+        // the winning side which must have contributed to the frozen pool.
+        assert(winningSide > 0);
+
+        // Step 1: gross = (userBet * totalPool) / winningSide
+        euint256 totalPoolHandle = Nox.toEuint256(totalPool);
+        euint256 winningSideHandle = Nox.toEuint256(winningSide);
+        euint256 numeratorHandle = Nox.mul(userBet, totalPoolHandle);
+        Nox.allowThis(numeratorHandle);
+        euint256 grossHandle = Nox.div(numeratorHandle, winningSideHandle);
+        Nox.allowThis(grossHandle);
+
+        // Step 2: fee = (gross * protocolFeeBps) / 10_000
+        euint256 feeNumerator = Nox.mul(grossHandle, Nox.toEuint256(protocolFeeBps));
+        Nox.allowThis(feeNumerator);
+        euint256 feeHandle = Nox.div(feeNumerator, Nox.toEuint256(10_000));
+        Nox.allowThis(feeHandle);
+
+        // Step 3: net payout = gross - fee
+        euint256 payoutHandle = Nox.sub(grossHandle, feeHandle);
+        Nox.allowThis(payoutHandle);
+        Nox.allow(payoutHandle, msg.sender);
+
+        // Transfer net payout to user. Market must have sufficient cUSDC
+        // balance (guaranteed: market holds all bets via placeBet's transferFrom).
+        Nox.allowTransient(payoutHandle, confidentialUSDC);
+        IConfidentialUSDC(confidentialUSDC).confidentialTransfer(msg.sender, payoutHandle);
+
+        emit ClaimSettled(msg.sender, _outcome, euint256.unwrap(payoutHandle), euint256.unwrap(feeHandle));
     }
 
     function hasClaimed(address user) external view returns (bool) {

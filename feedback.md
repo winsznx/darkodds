@@ -180,3 +180,91 @@ The full encrypt → decrypt round-trip. That is intentional and correct per the
 2. **`create-next-app` should respect existing `pnpm-workspace.yaml` in the parent.** Today it writes one in the new app's directory regardless.
 3. **Foundry's `forge init` flag changes between minor versions** (e.g. removing `--no-commit`) need a deprecation note in release notes. We caught it via `--help`; users with stale tutorials would hit a hard error.
 4. **OpenZeppelin Confidential Contracts v0.4.0** install was uneventful. The library is small (47 objects in the install) and pre-dated the Nox SDK rename; remappings worked first try with `@openzeppelin/contracts-confidential/=lib/openzeppelin-confidential-contracts/contracts/`.
+
+---
+
+## Phase F2 — ConfidentialUSDC live on Arbitrum Sepolia
+
+### Deployment
+
+| Contract                           | Address                                                                                                                        | Verified    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| TestUSDC                           | [`0xf02C982D19184c11b86BC34672441C45fBF0f93E`](https://sepolia.arbiscan.io/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e) | ✅ Arbiscan |
+| ConfidentialUSDC                   | [`0xf9f3A9F5F3a2F4138FB680D5cDfa635FD4312372`](https://sepolia.arbiscan.io/address/0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372) | ✅ Arbiscan |
+| Nox protocol (iExec, pre-existing) | `0xd464B198f06756a1d00be223634b85E0a731c229`                                                                                   | n/a         |
+
+Smoke wrap tx: [`0x27b7b4a6...8365bf`](https://sepolia.arbiscan.io/tx/0x27b7b4a6abc3912ed30f2f57492997518d457da72e73ba723535de0fbd8365bf).
+
+### Smoke run — wrap → decrypt round-trip
+
+| step                       | latency     |
+| -------------------------- | ----------- |
+| load deployment json       | 0ms         |
+| ETH balance check          | 241ms       |
+| TestUSDC.mint              | 2486ms      |
+| TestUSDC.approve           | 2601ms      |
+| Nox encryptInput           | 1930ms      |
+| ConfidentialUSDC.wrap      | 2180ms      |
+| read confidentialBalanceOf | 240ms       |
+| Nox decrypt                | 1164ms      |
+| **total round-trip**       | **11441ms** |
+
+Decrypted balance was `100_000_000` (= 100 tUSDC at 6 decimals), matching the deposit exactly. **First decrypt that ever succeeded in the project's lifetime** — proves the Nox-native architecture works end-to-end.
+
+### Architecture: Nox-native, NOT inheriting OpenZeppelin Confidential Contracts
+
+Single biggest decision in F2. OZCC v0.4.0 imports `@fhevm/solidity/lib/FHE.sol` throughout — every wrapper is built for Zama FHEVM, not Nox. Inheriting it would have deployed a contract bound to FHEVM's on-chain ACL, disconnected from the Nox foundation we already validated in P0.
+
+We built directly on `@iexec-nox/nox-protocol-contracts@0.2.2` using the `Nox` SDK library. Result: **the first published Nox-native ERC-7984-shape ERC-20 wrapper.** Closest reference iExec ships is `ConfidentialTokenMock.sol` (a non-wrapper token).
+
+**Suggestion to OpenZeppelin / iExec:** ship a Nox-flavored fork of `ERC7984ERC20Wrapper`. The OZ FHEVM equivalent exists; the absence of a Nox version forces every Nox prediction-market / private-DeFi project to author its own wrap pattern.
+
+### What worked beautifully in `@iexec-nox/nox-protocol-contracts`
+
+1. **`TestHelper.deploy(owner, gateway)`.** vm.etches the real `NoxCompute` proxy bytecode at the chain-resolved address for local chain 31337. Our 28 unit tests run against the **exact same on-chain logic** that lives at `0xd464...` on Arb Sepolia — not a hand-rolled mock. **Saved us writing a custom `MockNox.sol`** (originally a F2 prompt deliverable). Excellent DX.
+
+2. **`TestHelper.buildInputProof(...)` + `buildDecryptionProof(...)`.** Generate valid EIP-712 gateway proofs in tests. Lets us exercise the full proof-validation path (`InvalidProof("App mismatch")`, `Owner mismatch`, `Proof expired`) without hand-rolling EIP-712 signing.
+
+3. **`Nox.mint(balance, amount, totalSupply)` atomic primitive.** Returns `(success, newBalance, newSupply)` in a single TEE call. Cleaner than the iExec mock's `_update` (which does manual `safeAdd` + supply update). We use mint/burn for both wrap and unwrap.
+
+4. **`isPubliclyDecryptable(handle)` + `validateDecryptionProof(handle, proof)`.** Lets us implement the OZ FHEVM 2-tx unwrap (request → finalize) using only Nox primitives. The success-bool ebool from `Nox.burn` becomes the request id.
+
+### What was friction in `@iexec-nox/nox-protocol-contracts`
+
+1. **No published wrapped-ERC20 reference.** Deep source-evidence search confirmed: nothing in iExec-Nox's GitHub org wraps a plaintext ERC-20 into a confidential token. Closest is `ConfidentialTokenMock.sol`, which is a from-scratch token, not a wrapper. We're authoring the canonical pattern.
+
+2. **`forge-std/src/Vm.sol` import path in TestHelper.** iExec's TestHelper imports `forge-std/src/Vm.sol` (with `src/` prefix). Standard Foundry remapping `forge-std/=lib/forge-std/src/` resolves this to `lib/forge-std/src/src/Vm.sol` — wrong. Foundry deduplicates same-target remappings, so listing both `forge-std/=...` and `forge-std/src/=...` collapses. Workaround: contextual remapping `lib/nox-protocol-contracts/:forge-std/src/=lib/forge-std/src/`. Compiles fine but logs noisy `[ERROR]` on every build before the contextual fallback succeeds. **Suggestion:** TestHelper should import `forge-std/Vm.sol` (the conventional path).
+
+3. **License boundary fragility.** `sdk/Nox.sol`, `interfaces/INoxCompute.sol`, `shared/*` are MIT — safe to import in production. Everything else (the `NoxCompute.sol` implementation, all mocks) is BUSL-1.1. The boundary is correct but easy to mis-cross. **Suggestion:** document this loudly in the README.
+
+4. **`encryptInput` solidityType menu is constrained.** Nox SDK supports `bool`, `uint16`, `uint256`, `int16`, `int256`. No `uint64` or `uint128`. For F3 pool accumulators we'll be using `uint256` because it's the only large-enough option. Would benefit from `uint128` (bet sizes never need 256 bits) and `uint64` (gas-cheaper for small counters).
+
+### What was friction at the Foundry 1.6 / Arbitrum RPC interop layer
+
+5. **`forge script` and `forge create` both fail against the public Arb Sepolia RPC** with `deserialization error: missing field timestampMillis`. Foundry 1.6.0's alloy expects `timestampMillis` in `eth_getBlockByNumber` responses, which Arbitrum's RPC doesn't return. Workaround: deploy via viem in `tools/deploy-f2.ts`. We retain `DeployF2.s.sol` for documentation. **Suggestion to Foundry:** make `timestampMillis` optional in alloy's block deserialization (it's an Alchemy-flavored extension, not a core EIP field).
+
+6. **`forge verify-contract` requires `ETHERSCAN_API_KEY` env var even for Blockscout.** Workaround: set it to any non-empty string. **Suggestion:** make the env var optional when `--verifier blockscout` is used.
+
+7. **Public Arb Sepolia RPC is non-archive.** `forge test --fork-url ... --fork-block-number 0` fails with `missing trie node`. Workaround: pin the fork to current head (resolved via `eth_blockNumber` at run time). Documented in `pnpm test:contracts:fork`.
+
+8. **Arbiscan migrated to Etherscan V2 API.** Old V1 endpoint (`https://api-sepolia.arbiscan.io/api`) returns "deprecated, switch to V2". V2 endpoint is `https://api.etherscan.io/v2/api?chainid=421614` with the unified Etherscan API key. Worked first try once switched.
+
+### Test coverage
+
+`forge coverage` on `src/`:
+
+| File                 | Lines      | Statements | Branches   | Funcs      |
+| -------------------- | ---------- | ---------- | ---------- | ---------- |
+| ConfidentialUSDC.sol | 94.79%     | 93.68%     | 75.00%     | 92.86%     |
+| TestUSDC.sol         | 100.00%    | 100.00%    | n/a        | 100.00%    |
+| **Total**            | **95.00%** | **93.81%** | **75.00%** | **93.75%** |
+
+Above the PRD's ≥85% bar on lines/statements/functions. 28 unit tests + 1 fork test pass; fuzz on `wrap` runs 256 iterations across `uint128` deposits with no failures.
+
+### Suggestions to iExec (prioritized)
+
+1. **Ship `ERC7984ERC20Wrapper` for Nox** in `@iexec-nox/nox-protocol-contracts/contracts/extensions/`. The OZ FHEVM equivalent exists; the Nox version doesn't. Every Nox prediction-market / private-DeFi project will eventually want this — and absent a canonical reference, every project will design slightly differently and get the ACL details slightly wrong.
+2. **Update `ConfidentialTokenMock._update` to use `Nox.mint`/`Nox.burn`** atomic primitives instead of manual `safeAdd`/`safeSub` + supply update. Demonstrates the canonical token pattern.
+3. **Fix `TestHelper.sol` import path** from `forge-std/src/Vm.sol` to `forge-std/Vm.sol`.
+4. **Document the license boundary** loudly. Easy mistake to import from `mock/` thinking it's safe for production.
+5. **Wider `encryptInput` solidityType menu** — at minimum `uint64` and `uint128`.

@@ -1,3 +1,7 @@
 forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts-confidential/=lib/openzeppelin-confidential-contracts/contracts/
+@iexec-nox/nox-protocol-contracts/=lib/nox-protocol-contracts/
+encrypted-types/=lib/encrypted-types/
+lib/nox-protocol-contracts/:forge-std/src/=lib/forge-std/src/

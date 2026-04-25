@@ -1,0 +1,18 @@
+{
+  "chainId": 421614,
+  "contracts": {
+    "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
+    "ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
+    "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229"
+  },
+  "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+  "deployedAt": 1777124722,
+  "txs": {
+    "TestUSDC": "0x84c7322e733ecd3052c0268c61964c1a4b6de7b431008eb469c07c4faeacfb75",
+    "ConfidentialUSDC": "0x867fefc5df10f21ab0465f5229697026206994ef7b07424768ccb9408927813c"
+  },
+  "blockscout": {
+    "TestUSDC": "https://arbitrum-sepolia.blockscout.com/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e",
+    "ConfidentialUSDC": "https://arbitrum-sepolia.blockscout.com/address/0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372"
+  }
+}

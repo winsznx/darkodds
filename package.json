@@ -14,6 +14,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,sol}\"",
     "typecheck": "pnpm --filter web run typecheck && tsc --noEmit -p tsconfig.json",
     "test:contracts": "forge test --root contracts",
+    "test:contracts:fork": "FORK_TEST=1 forge test --root contracts --match-contract Fork --fork-url https://sepolia-rollup.arbitrum.io/rpc",
+    "deploy:f2": "bash -c 'set -a && source .env && set +a && tsx tools/deploy-f2.ts'",
+    "smoke:f2": "tsx tools/smoke-f2.ts",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"

@@ -9,6 +9,7 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 fs_permissions = [{access = "read-write", path = "./deployments"}]
+auto_detect_remappings = false
 
 [profile.ci]
 verbosity = 4

@@ -1,8 +1,99 @@
 # DRIFT_LOG
 
 Append-only log of every divergence between the implementation and the active PRD.
-Source-of-truth: `Darkodds Master PRD v1.2.md` (was `Darkodds Master PRD.md` v1.1).
+Source-of-truth: `Darkodds Master PRD v1.3.md` (was v1.2 → v1.1 → v1.0).
 Format per §0.2.
+
+---
+
+## [2026-04-25 F2] Active PRD bumped v1.2 → v1.3 — ConfidentialUSDC is Nox-native, not OZCC
+
+**Expected (per PRD v1.2 §5.1):** Wrap OpenZeppelin Confidential Contracts' `ERC7984ERC20Wrapper` as the base.
+**Actual (implementation):** Built Nox-native on `@iexec-nox/nox-protocol-contracts@0.2.2`. Concretely: `ConfidentialUSDC.sol` imports only `Nox` from `sdk/Nox.sol` + `encrypted-types` types, uses `Nox.fromExternal` / `Nox.mint` / `Nox.burn` / `Nox.allow` / `Nox.allowThis` / `Nox.allowPublicDecryption` / `Nox.publicDecrypt`. ERC-7984 spec compliance preserved at function-shape level via our own `IERC7984` interface re-typed to `euint256` / `externalEuint256`.
+**Reason:** OZCC v0.4.0 imports `@fhevm/solidity/lib/FHE.sol` throughout — built for Zama FHEVM, not Nox. Inheriting it would deploy a contract bound to Zama's on-chain ACL (different protocol, different chain). Per §0.1 "docs win", and confirmed by deep source-evidence research (no published iExec wrapped-ERC20 reference exists; we author the canonical pattern). Operator confirmed in v1.3 prompt.
+**Impact:** Single largest architecture decision in the project. We give up OZCC's `euint64` interface compat in exchange for Nox's `euint256` (more headroom for F3 pool accumulators). Full rationale captured in PRD v1.3 §5.1.1.
+**Decision:** Proceed Nox-native. Cited iExec's own published `ConfidentialTokenMock.sol` as the closest reference for the Nox `_update`/ACL idiom we follow.
+
+---
+
+## [2026-04-25 F2] §11 F2 — `INox.sol` interface dropped; `INoxCompute` already published
+
+**Expected (per F2 prompt):** Author `contracts/src/interfaces/INox.sol` exposing `fromExternal(...)`.
+**Actual (implementation):** Did not author. `@iexec-nox/nox-protocol-contracts/contracts/interfaces/INoxCompute.sol` is the published interface for the on-chain Nox protocol contract. Our contract uses the high-level `Nox` SDK library which internally calls `INoxCompute`; we never need to declare the interface ourselves.
+**Reason:** Avoid duplication. The library's interface is canonical and tracks upstream changes automatically.
+**Impact:** None — the integration is identical, with one fewer file to maintain.
+**Decision:** Proceed without `INox.sol`. PRD v1.3 §5.1.2 is consistent with this.
+
+---
+
+## [2026-04-25 F2] §11 F2 — Custom `MockNox.sol` dropped; iExec's `TestHelper` used instead
+
+**Expected (per F2 prompt step 5):** Build `contracts/test/mocks/MockNox.sol` that implements `INox` with permissive proof verification.
+**Actual (implementation):** Did not author. iExec ships `lib/nox-protocol-contracts/test/utils/TestHelper.sol` (BUSL-1.1, test-only) which `vm.etches` the **real** `NoxCompute` proxy bytecode at the chain-resolved address, generates valid EIP-712 gateway-signed input proofs, builds public-decryption proofs, and creates correctly-formatted handles. We import it directly and run our tests against the **real** on-chain Nox logic (just etched onto local chain 31337). Higher fidelity than a hand-rolled mock — every ACL grant, proof validation, and atomic compute primitive runs against the exact same code that's deployed on Arb Sepolia.
+**Reason:** Don't reinvent. iExec's testing infrastructure is canonical.
+**Impact:** Skipped ~150-300 lines of mock code. 28 unit tests + 1 fork test pass. 95% line coverage on `src/`.
+**Decision:** Proceed with `TestHelper`. Logged in `feedback.md` as a positive iExec DX win.
+
+---
+
+## [2026-04-25 F2] §11 F2 — Foundry contextual remapping for TestHelper's `forge-std/src/...` imports
+
+**Expected:** Standard `forge-std/=lib/forge-std/src/` remapping handles all forge-std imports.
+**Actual:** iExec's `TestHelper.sol` imports `forge-std/src/Vm.sol` (with the `src/` prefix), which our standard remapping resolves to `lib/forge-std/src/src/Vm.sol` — wrong path. Foundry deduplicates same-target remappings if both are listed at the top level (`forge-std/=...` and `forge-std/src/=...` collapse).
+**Workaround:** Foundry contextual remapping syntax `lib/nox-protocol-contracts/:forge-std/src/=lib/forge-std/src/` — kicks in only for imports originating from inside the Nox lib's directory.
+**Impact:** Compile noise (resolver logs an [ERROR] for the first attempt before the contextual fallback succeeds), but functional. Contextual remapping is a real Foundry feature, not a hack.
+**Decision:** Proceed.
+
+---
+
+## [2026-04-25 F2] §11 F2 — ChainGPT auditor pass deferred to F4.5
+
+**Expected (per F2 prompt step 8):** Run ChainGPT Smart Contract Auditor on TestUSDC + ConfidentialUSDC, save report.
+**Actual (implementation):** Deferred to Phase F4.5 per operator's standing secrets policy. F4.5 is the explicit security-hardening phase; running the auditor there gives it more surface to cover (Market, Resolution, Claim) instead of two F2-only contracts in isolation.
+**Impact:** None on F2 deliverable. F4.5 will audit ALL contracts including F2 ones.
+**Decision:** Defer.
+
+---
+
+## [2026-04-25 F2] §11 F2 — Verified on Arbiscan (Etherscan V2), not Blockscout
+
+**Expected (per F2 prompt):** Verify on Blockscout's Arbitrum Sepolia instance (no API key required).
+**Actual (implementation):** Verified on Arbiscan via Etherscan V2 API (`https://api.etherscan.io/v2/api?chainid=421614`) using operator's `ARBISCAN_API_KEY` from `.env.local`. Both contracts: `Pass - Verified`. Blockscout verification was attempted but the Blockscout API returned HTTP 524 (CloudFlare timeout) — transient outage.
+**Reason:** Operationally reachable, operator-supplied real API key, canonical Etherscan-family explorer for Arbitrum.
+**Impact:** Judges can verify on Arbiscan today. Blockscout can be re-attempted as a free background task in a later phase.
+**Decision:** Proceed with Arbiscan-only for F2 commit.
+
+---
+
+## [2026-04-25 F2] §11 F2 — Deploy via viem, not `forge script` / `forge create`
+
+**Expected (per F2 prompt):** `contracts/script/DeployF2.s.sol` deploys via `forge script`.
+**Actual (implementation):** Wrote `DeployF2.s.sol` (committed as documentation of the canonical broadcast pattern), but Foundry 1.6.0 fails to deploy against the public Arb Sepolia RPC: alloy expects `timestampMillis` in `eth_getBlockByNumber` responses, which Arbitrum's RPC does not return. Both `forge script` and `forge create` hit this. We deploy via `tools/deploy-f2.ts` using viem (which doesn't have this strictness), then use `forge verify-contract` post-deploy.
+**Reason:** Tooling bug in Foundry 1.6.0 + Arbitrum RPC compat. Not fixable from our side.
+**Impact:** None on outcome. We retain `DeployF2.s.sol` for the day Foundry catches up; viem deployer is the active path.
+**Decision:** Proceed with viem deployer. Logged in `feedback.md` for upstream report.
+
+---
+
+## [2026-04-25 F2] §11 F2 — Encrypt → wrap → decrypt round-trip GREEN against real Nox + Arb Sepolia
+
+**Expected (per F2 prompt step 7):** Smoke test `tools/smoke-f2.ts` MUST decrypt to plaintext == amount before commit.
+**Actual:** GREEN. Latency table from the run:
+
+| step           | latency     |
+| -------------- | ----------- |
+| load           | 0ms         |
+| balance        | 241ms       |
+| mint           | 2486ms      |
+| approve        | 2601ms      |
+| encrypt        | 1930ms      |
+| wrap           | 2180ms      |
+| balance-handle | 240ms       |
+| decrypt        | 1164ms      |
+| **total**      | **11441ms** |
+
+This is the moment v1.1 PRD's P0 envisioned. v1.2 deferred decrypt to F2 (correctly — handle ACL lives on-chain via `Nox.fromExternal`). v1.3 is where it lands. Decrypt succeeds because `wrap` calls `Nox.fromExternal(handle, proof)` (committing the deposit handle to on-chain ACL with the contract as transient admin) and then `Nox.allow(newBalance, msg.sender)` (granting the user persistent viewer access). Off-chain `decrypt(balanceHandle)` succeeds via the gateway's `isViewer(handle, user)` check.
+**Decision:** GREEN. Phase complete.
 
 ---
 

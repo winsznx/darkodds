@@ -25,6 +25,12 @@
 //
 // Reads:  .env (DEPLOYER_PRIVATE_KEY, MULTISIG_SIGNER_2_PK, ARB_SEPOLIA_RPC_URL)
 // Writes: verification-output/<timestamp>/* (gitignored)
+//
+// Flags:
+//   --non-interactive   Skip all "Press Enter to continue" pauses and accept
+//                       default answers for prompts (fresh test wallet = yes).
+//                       Used by the agent for end-to-end CI-style runs;
+//                       human-mode is the default.
 
 import * as readline from "node:readline/promises";
 import {stdin, stdout} from "node:process";
@@ -54,6 +60,8 @@ import Safe from "@safe-global/protocol-kit";
 // ============================================================================
 // Constants
 // ============================================================================
+
+const NON_INTERACTIVE = process.argv.includes("--non-interactive");
 
 const ARB_SCAN = "https://sepolia.arbiscan.io";
 const SAFE_UI_BASE = "https://app.safe.global/?safe=arb-sep:";
@@ -190,6 +198,10 @@ function recordTx(step: string, description: string, tx: Hex): void {
 }
 
 function pause(prompt = "Press Enter to continue"): Promise<void> {
+  if (NON_INTERACTIVE) {
+    log(`${C.dim}━━ ${prompt} (auto-skipped: --non-interactive) ━━${C.reset}`);
+    return Promise.resolve();
+  }
   return new Promise((resolve) => {
     rl.question(`\n${C.yellow}━━ ${prompt} ━━${C.reset} `).then(() => resolve());
   });
@@ -198,6 +210,10 @@ function pause(prompt = "Press Enter to continue"): Promise<void> {
 const rl = readline.createInterface({input: stdin, output: stdout});
 
 async function promptYn(question: string, def = true): Promise<boolean> {
+  if (NON_INTERACTIVE) {
+    log(`${question} ${C.dim}(auto-answer: ${def ? "Y" : "n"})${C.reset}`);
+    return def;
+  }
   const tag = def ? "(Y/n)" : "(y/N)";
   const ans = (await rl.question(`${question} ${tag} `)).trim().toLowerCase();
   if (ans === "") return def;
@@ -249,10 +265,10 @@ async function countdown(label: string, totalSecs: number): Promise<void> {
 // ============================================================================
 
 async function main(): Promise<void> {
-  if (!stdin.isTTY) {
+  if (!stdin.isTTY && !NON_INTERACTIVE) {
     throw new Error(
-      "verify-backend must be run from an interactive terminal. " +
-        "If you're running through a non-TTY pipe, run it directly with `pnpm verify:backend`.",
+      "verify-backend must be run from an interactive terminal, or with --non-interactive. " +
+        "Human runs: `pnpm verify:backend`. Agent / CI runs: `pnpm verify:backend --non-interactive`.",
     );
   }
 

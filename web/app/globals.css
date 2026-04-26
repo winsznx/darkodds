@@ -37,63 +37,101 @@
 }
 
 /*
- * Design tokens per PRD §7.1.
- * Plumbing landed in F1; values are placeholders subject to F6 design pass.
- * §7.1: "no rounded corners > 2px" — radius forced to 0 globally.
+ * Design tokens — DARKODDS DECLASSIFIED DOSSIER (F6 design pass).
+ * Light theme (default) — dossier paper.
+ * Dark theme — graphite.
+ * §7.1: "no rounded corners > 2px" — radius forced to 0/2 globally.
  */
 :root {
-  --bg: #f5f1e8;
-  --bg-2: #ede7d8;
-  --fg: #0a0908;
-  --fg-mute: #4a4742;
-  --redaction: #0a0908;
+  /* base palette */
+  --bone: #f5f1e8;
+  --ink: #0f0f0e;
+  --graphite: #1a1a1a;
+  --ash: #2a2a2a;
+  --redaction: #0a0a0a;
+
+  /* themed semantic */
+  --bg: var(--bone);
+  --bg-soft: #ede7d7;
+  --fg: var(--ink);
+  --fg-muted: #5a5a57;
+  --fg-secondary: var(--graphite);
+  --hairline: rgba(10, 10, 10, 0.18);
+  --hairline-strong: rgba(10, 10, 10, 0.55);
+
+  /* accents — sparingly */
+  --redacted-red: #a82820;
+  --declassified-amber: #c09020;
+
+  /* legacy aliases kept for any F1 plumbing that still references them */
+  --bg-2: var(--bg-soft);
+  --fg-mute: var(--fg-muted);
   --accent-yes: #1f5c3d;
   --accent-no: #7a1e1e;
-  --accent-signal: #c49a00;
-  --border: rgba(10, 9, 8, 0.15);
-  --radius: 0px;
+  --accent-signal: var(--declassified-amber);
+  --border: var(--hairline);
+
+  /* spacing scale (8px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
 }
 
 [data-theme="dark"] {
-  --bg: #0e0e0d;
-  --bg-2: #1a1a18;
-  --fg: #f5f1e8;
-  --fg-mute: #ada89e;
-  --redaction: #f5f1e8;
-  --accent-yes: #2d8159;
-  --accent-no: #b33a3a;
-  --accent-signal: #f4c430;
-  --border: rgba(245, 241, 232, 0.15);
+  --bg: var(--graphite);
+  --bg-soft: #222220;
+  --fg: var(--bone);
+  --fg-muted: #8b8b85;
+  --fg-secondary: #c9c5ba;
+  --hairline: rgba(245, 241, 232, 0.16);
+  --hairline-strong: rgba(245, 241, 232, 0.55);
+  --redaction: #0a0a0a;
+  --bg-2: var(--bg-soft);
+  --fg-mute: var(--fg-muted);
+  --border: var(--hairline);
 }
 
+/* OS preference fallback only when user has not made a choice */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0e0e0d;
-    --bg-2: #1a1a18;
-    --fg: #f5f1e8;
-    --fg-mute: #ada89e;
-    --redaction: #f5f1e8;
-    --accent-yes: #2d8159;
-    --accent-no: #b33a3a;
-    --accent-signal: #f4c430;
-    --border: rgba(245, 241, 232, 0.15);
+    --bg: var(--graphite);
+    --bg-soft: #222220;
+    --fg: var(--bone);
+    --fg-muted: #8b8b85;
+    --fg-secondary: #c9c5ba;
+    --hairline: rgba(245, 241, 232, 0.16);
+    --hairline-strong: rgba(245, 241, 232, 0.55);
+    --redaction: #0a0a0a;
+    --bg-2: var(--bg-soft);
+    --fg-mute: var(--fg-muted);
+    --border: var(--hairline);
   }
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-bg-2: var(--bg-2);
+  --color-bg-soft: var(--bg-soft);
   --color-fg: var(--fg);
-  --color-fg-mute: var(--fg-mute);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-secondary: var(--fg-secondary);
   --color-redaction: var(--redaction);
-  --color-accent-yes: var(--accent-yes);
-  --color-accent-no: var(--accent-no);
-  --color-accent-signal: var(--accent-signal);
-  --color-border: var(--border);
+  --color-redacted-red: var(--redacted-red);
+  --color-declassified-amber: var(--declassified-amber);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
   --font-stamp: "Special Elite", Courier, monospace;
+
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -102,9 +140,141 @@
   --radius-3xl: 2px;
 }
 
+html,
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Subtle paper grain — applied to body via ::before. Keeps the dossier feel
+   without becoming noisy. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+}
+[data-theme="dark"] body::before {
+  mix-blend-mode: screen;
+  opacity: 0.04;
+}
+
+/* ============================================================
+   PRIMITIVES — redaction, stamp, bordered pill, theme toggle
+   These are referenced from landing.css (sections) and elsewhere.
+   ============================================================ */
+
+.redact {
+  display: inline-block;
+  position: relative;
+  background: var(--redaction);
+  color: transparent;
+  padding: 0 0.35em;
+  margin: 0 0.05em;
+  border: 0.5px solid var(--redaction);
+  border-radius: 0;
+  user-select: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='32'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.95  0 0 0 0 0.9  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>"),
+    linear-gradient(180deg, #0e0e0e 0%, #060606 100%);
+  background-blend-mode: screen, normal;
+  cursor: help;
+  vertical-align: baseline;
+}
+.redact::selection {
+  background: transparent;
+}
+
+.stamp {
+  display: inline-block;
+  font-family: var(--font-stamp);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 12px 5px;
+  border: 1.5px solid currentColor;
+  color: var(--ink);
+  border-radius: 0;
+  line-height: 1;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  white-space: nowrap;
+  position: relative;
+}
+.stamp::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.18) 60%),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.12) 70%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.stamp--amber {
+  color: var(--declassified-amber);
+}
+.stamp--red {
+  color: var(--redacted-red);
+}
+.stamp--ink {
+  color: var(--fg);
+}
+
+.bpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px 6px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 0;
+  cursor: pointer;
+  transition:
+    background 80ms,
+    color 80ms;
+}
+.bpill:hover {
+  background: var(--hairline);
+}
+.bpill[aria-pressed="true"],
+.bpill.is-active {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.theme-toggle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 0;
+}
+.theme-toggle:hover {
+  background: var(--hairline);
 }

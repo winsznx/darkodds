@@ -1,9 +1,11 @@
 import type {Metadata} from "next";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DarkOdds",
-  description: "Confidential prediction market on Arbitrum Sepolia.",
+  title: "DarkOdds — Public market. Private wager.",
+  description:
+    "A confidential prediction market on Arbitrum Sepolia. Public outcomes, public odds, hidden bet sizes. Built on iExec Nox.",
 };
 
 export default function RootLayout({
@@ -12,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full antialiased" data-theme="light" suppressHydrationWarning>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

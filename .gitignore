@@ -41,3 +41,6 @@ subgraph/generated/
 # Editor
 .vscode/
 .idea/
+
+# verify-backend run output (timestamped transcripts, attestations, balance logs)
+verification-output/

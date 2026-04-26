@@ -75,6 +75,23 @@ pnpm test:contracts
 # Suite result: ok. 1 passed; 0 failed; 0 skipped
 ```
 
+### End-to-end backend verification
+
+```bash
+pnpm verify:backend
+```
+
+9-step interactive walkthrough that exercises every contract on real Arbitrum
+Sepolia: wrap → bet → batch → resolve → claim → attest → verify → unwrap. The
+script pauses between each step so you can confirm txs on Arbiscan in real
+time. Takes ~5 minutes including the 60s batch wait and the 60s claim-window
+delay. Output is saved to `verification-output/<timestamp>/` — transcript,
+generated attestation JSON, Arbiscan link index, and final balance assertions.
+
+Pre-flight requires the deployer wallet to hold ≥ 0.02 ETH; the script funds a
+fresh test wallet from the deployer for the run (recommended) or reuses the
+deployer wallet directly (faster, but mixes state).
+
 To boot the placeholder frontend:
 
 ```bash
@@ -132,29 +149,30 @@ darkodds/
 
 ## Root scripts
 
-| Command                    | Action                                                               |
-| -------------------------- | -------------------------------------------------------------------- |
-| `pnpm healthcheck`         | Run P0 Nox infrastructure validation (5-step reachability)           |
-| `pnpm dev:web`             | Boot Next.js dev server on `localhost:3000`                          |
-| `pnpm build:web`           | Production build of `web/`                                           |
-| `pnpm test:contracts`      | `forge test` against `contracts/`                                    |
-| `pnpm test:contracts:fork` | Fork test against live Arb Sepolia (`FORK_TEST=1`)                   |
-| `pnpm deploy:f2`           | Deploy F2 contracts via viem + verify on Arbiscan                    |
-| `pnpm smoke:f2`            | F2 smoke test: real wrap → decrypt round-trip on Arb Sepolia         |
-| `pnpm deploy:f3`           | Deploy F3 (cUSDC v2 + Market impl + Registry + market 0)             |
-| `pnpm smoke:f3`            | F3 smoke test: real bet → batch publish round-trip on Arb Sepolia    |
-| `pnpm deploy:f4`           | Deploy F4 (resolution + claim suite: 8 contracts + 2 markets)        |
-| `pnpm smoke:f4`            | F4 smoke test: full lifecycle (claim + INVALID refund), ~5 min       |
-| `pnpm deploy:multisig`     | F4.5 — deploy 2-of-3 Safe + transfer ownership of 7 Ownable          |
-| `pnpm deploy:f45`          | F4.5 — deploy patched MarketImpl v3 + Safe-set on registry           |
-| `pnpm smoke:f45`           | F4.5 — full lifecycle smoke with Safe-mediated owner ops, ~5 min     |
-| `pnpm deploy:f5`           | F5 — deploy MarketImpl v4 + Safe-set on registry (payout live)       |
-| `pnpm smoke:f5`            | F5 — full lifecycle smoke verifying ClaimSettled payout, ~5 min      |
-| `pnpm deploy:f5fu`         | F5-followup — deploy MarketImpl v5 (empty-winning-side auto-Invalid) |
-| `pnpm lint`                | ESLint over `web/`                                                   |
-| `pnpm typecheck`           | `tsc --noEmit` for `tools/` + `web/`                                 |
-| `pnpm format`              | Prettier write across all workspaces (incl. Solidity)                |
-| `pnpm format:check`        | Prettier check (CI-friendly)                                         |
+| Command                    | Action                                                                 |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `pnpm healthcheck`         | Run P0 Nox infrastructure validation (5-step reachability)             |
+| `pnpm dev:web`             | Boot Next.js dev server on `localhost:3000`                            |
+| `pnpm build:web`           | Production build of `web/`                                             |
+| `pnpm test:contracts`      | `forge test` against `contracts/`                                      |
+| `pnpm test:contracts:fork` | Fork test against live Arb Sepolia (`FORK_TEST=1`)                     |
+| `pnpm deploy:f2`           | Deploy F2 contracts via viem + verify on Arbiscan                      |
+| `pnpm smoke:f2`            | F2 smoke test: real wrap → decrypt round-trip on Arb Sepolia           |
+| `pnpm deploy:f3`           | Deploy F3 (cUSDC v2 + Market impl + Registry + market 0)               |
+| `pnpm smoke:f3`            | F3 smoke test: real bet → batch publish round-trip on Arb Sepolia      |
+| `pnpm deploy:f4`           | Deploy F4 (resolution + claim suite: 8 contracts + 2 markets)          |
+| `pnpm smoke:f4`            | F4 smoke test: full lifecycle (claim + INVALID refund), ~5 min         |
+| `pnpm deploy:multisig`     | F4.5 — deploy 2-of-3 Safe + transfer ownership of 7 Ownable            |
+| `pnpm deploy:f45`          | F4.5 — deploy patched MarketImpl v3 + Safe-set on registry             |
+| `pnpm smoke:f45`           | F4.5 — full lifecycle smoke with Safe-mediated owner ops, ~5 min       |
+| `pnpm deploy:f5`           | F5 — deploy MarketImpl v4 + Safe-set on registry (payout live)         |
+| `pnpm smoke:f5`            | F5 — full lifecycle smoke verifying ClaimSettled payout, ~5 min        |
+| `pnpm deploy:f5fu`         | F5-followup — deploy MarketImpl v5 (empty-winning-side auto-Invalid)   |
+| `pnpm verify:backend`      | F5-final — interactive 9-step end-to-end backend verification (~5 min) |
+| `pnpm lint`                | ESLint over `web/`                                                     |
+| `pnpm typecheck`           | `tsc --noEmit` for `tools/` + `web/`                                   |
+| `pnpm format`              | Prettier write across all workspaces (incl. Solidity)                  |
+| `pnpm format:check`        | Prettier check (CI-friendly)                                           |
 
 A `husky` pre-commit hook runs `lint-staged` (Prettier + ESLint on staged files).
 

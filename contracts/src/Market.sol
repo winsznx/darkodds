@@ -444,10 +444,31 @@ contract Market is IMarket, ReentrancyGuard {
         yesPoolFrozen = yesPlain;
         noPoolFrozen = noPlain;
         poolFrozenTs = block.timestamp;
-        claimWindowOpensAt = block.timestamp + CLAIM_OPEN_DELAY;
-        _state = State.ClaimWindow;
 
         emit PoolFrozen(yesPlain, noPlain, block.timestamp);
+
+        // F5-followup edge case: if the resolved-winning side has zero pool,
+        // there is no one with a winning position and `claimWinnings` would be
+        // permanently uncallable (NoWinningPosition for everyone). `markInvalid`
+        // explicitly disallows ClaimWindow state, so funds would lock forever.
+        // Auto-transition to Invalid so losers can `refundIfInvalid`.
+        //
+        // Strict fix: only zero-WINNING-side auto-Invalids. Zero-LOSING-side is
+        // mathematically resolvable — winners get exactly their stake back
+        // (`payout = userBet * userBet / userBet = userBet`) and losers had no
+        // chance to begin with. That's a degenerate but legitimate resolution,
+        // not a stuck-state, so it stays on the Resolved/ClaimWindow path.
+        // See DRIFT_LOG F5-followup.
+        uint256 winningSide = (_outcome == uint8(Outcome.YES)) ? yesPlain : noPlain;
+        if (winningSide == 0) {
+            _outcome = uint8(Outcome.INVALID);
+            _state = State.Invalid;
+            emit MarketInvalidated(block.timestamp);
+            return;
+        }
+
+        claimWindowOpensAt = block.timestamp + CLAIM_OPEN_DELAY;
+        _state = State.ClaimWindow;
         emit ClaimWindowOpened(claimWindowOpensAt);
     }
 

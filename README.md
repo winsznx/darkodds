@@ -132,28 +132,29 @@ darkodds/
 
 ## Root scripts
 
-| Command                    | Action                                                            |
-| -------------------------- | ----------------------------------------------------------------- |
-| `pnpm healthcheck`         | Run P0 Nox infrastructure validation (5-step reachability)        |
-| `pnpm dev:web`             | Boot Next.js dev server on `localhost:3000`                       |
-| `pnpm build:web`           | Production build of `web/`                                        |
-| `pnpm test:contracts`      | `forge test` against `contracts/`                                 |
-| `pnpm test:contracts:fork` | Fork test against live Arb Sepolia (`FORK_TEST=1`)                |
-| `pnpm deploy:f2`           | Deploy F2 contracts via viem + verify on Arbiscan                 |
-| `pnpm smoke:f2`            | F2 smoke test: real wrap → decrypt round-trip on Arb Sepolia      |
-| `pnpm deploy:f3`           | Deploy F3 (cUSDC v2 + Market impl + Registry + market 0)          |
-| `pnpm smoke:f3`            | F3 smoke test: real bet → batch publish round-trip on Arb Sepolia |
-| `pnpm deploy:f4`           | Deploy F4 (resolution + claim suite: 8 contracts + 2 markets)     |
-| `pnpm smoke:f4`            | F4 smoke test: full lifecycle (claim + INVALID refund), ~5 min    |
-| `pnpm deploy:multisig`     | F4.5 — deploy 2-of-3 Safe + transfer ownership of 7 Ownable       |
-| `pnpm deploy:f45`          | F4.5 — deploy patched MarketImpl v3 + Safe-set on registry        |
-| `pnpm smoke:f45`           | F4.5 — full lifecycle smoke with Safe-mediated owner ops, ~5 min  |
-| `pnpm deploy:f5`           | F5 — deploy MarketImpl v4 + Safe-set on registry (payout live)    |
-| `pnpm smoke:f5`            | F5 — full lifecycle smoke verifying ClaimSettled payout, ~5 min   |
-| `pnpm lint`                | ESLint over `web/`                                                |
-| `pnpm typecheck`           | `tsc --noEmit` for `tools/` + `web/`                              |
-| `pnpm format`              | Prettier write across all workspaces (incl. Solidity)             |
-| `pnpm format:check`        | Prettier check (CI-friendly)                                      |
+| Command                    | Action                                                               |
+| -------------------------- | -------------------------------------------------------------------- |
+| `pnpm healthcheck`         | Run P0 Nox infrastructure validation (5-step reachability)           |
+| `pnpm dev:web`             | Boot Next.js dev server on `localhost:3000`                          |
+| `pnpm build:web`           | Production build of `web/`                                           |
+| `pnpm test:contracts`      | `forge test` against `contracts/`                                    |
+| `pnpm test:contracts:fork` | Fork test against live Arb Sepolia (`FORK_TEST=1`)                   |
+| `pnpm deploy:f2`           | Deploy F2 contracts via viem + verify on Arbiscan                    |
+| `pnpm smoke:f2`            | F2 smoke test: real wrap → decrypt round-trip on Arb Sepolia         |
+| `pnpm deploy:f3`           | Deploy F3 (cUSDC v2 + Market impl + Registry + market 0)             |
+| `pnpm smoke:f3`            | F3 smoke test: real bet → batch publish round-trip on Arb Sepolia    |
+| `pnpm deploy:f4`           | Deploy F4 (resolution + claim suite: 8 contracts + 2 markets)        |
+| `pnpm smoke:f4`            | F4 smoke test: full lifecycle (claim + INVALID refund), ~5 min       |
+| `pnpm deploy:multisig`     | F4.5 — deploy 2-of-3 Safe + transfer ownership of 7 Ownable          |
+| `pnpm deploy:f45`          | F4.5 — deploy patched MarketImpl v3 + Safe-set on registry           |
+| `pnpm smoke:f45`           | F4.5 — full lifecycle smoke with Safe-mediated owner ops, ~5 min     |
+| `pnpm deploy:f5`           | F5 — deploy MarketImpl v4 + Safe-set on registry (payout live)       |
+| `pnpm smoke:f5`            | F5 — full lifecycle smoke verifying ClaimSettled payout, ~5 min      |
+| `pnpm deploy:f5fu`         | F5-followup — deploy MarketImpl v5 (empty-winning-side auto-Invalid) |
+| `pnpm lint`                | ESLint over `web/`                                                   |
+| `pnpm typecheck`           | `tsc --noEmit` for `tools/` + `web/`                                 |
+| `pnpm format`              | Prettier write across all workspaces (incl. Solidity)                |
+| `pnpm format:check`        | Prettier check (CI-friendly)                                         |
 
 A `husky` pre-commit hook runs `lint-staged` (Prettier + ESLint on staged files).
 
@@ -165,7 +166,8 @@ A `husky` pre-commit hook runs `lint-staged` (Prettier + ESLint on staged files)
 | ---------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Arbitrum Sepolia | `TestUSDC.sol`                        | [`0xf02C982D19184c11b86BC34672441C45fBF0f93E`](https://sepolia.arbiscan.io/address/0xf02c982d19184c11b86bc34672441c45fbf0f93e) ✅                                                                                                                                                                                                                                                                                                                                                                        |
 | Arbitrum Sepolia | `ConfidentialUSDC.sol` (v2, operator) | [`0xaF1ACDf0B031080D4fAd75129E74d89eaD450c4D`](https://sepolia.arbiscan.io/address/0xaf1acdf0b031080d4fad75129e74d89ead450c4d) ✅                                                                                                                                                                                                                                                                                                                                                                        |
-| Arbitrum Sepolia | `Market.sol` v4 (impl, F5 payout)     | [`0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a`](https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a) ✅ (current, registry points here)                                                                                                                                                                                                                                                                                                                                        |
+| Arbitrum Sepolia | `Market.sol` v5 (impl, F5-fu fix)     | [`0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779`](https://sepolia.arbiscan.io/address/0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779) ✅ (current, registry points here)                                                                                                                                                                                                                                                                                                                                        |
+| Arbitrum Sepolia | `Market.sol` v4 (legacy F5 impl)      | [`0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a`](https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a) (Markets 7–8 pinned here)                                                                                                                                                                                                                                                                                                                                                 |
 | Arbitrum Sepolia | `Market.sol` v3 (legacy F4.5 impl)    | [`0x73167B1F0e07D3D3CE24b05A90EF8b0d991Cc7eA`](https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea) (Markets 3–6 pinned here)                                                                                                                                                                                                                                                                                                                                                 |
 | Arbitrum Sepolia | `Market.sol` v2 (legacy F4 impl)      | [`0x297Ddb129f87B37e4B28cD1c1c6457ED0c7BB8c4`](https://sepolia.arbiscan.io/address/0x297ddb129f87b37e4b28cd1c1c6457ed0c7bb8c4) (Markets 1–2 still pinned here)                                                                                                                                                                                                                                                                                                                                           |
 | Arbitrum Sepolia | `MarketRegistry.sol` v2 (Safe-owned)  | [`0xE66B2F638F5dB738243a44F7Aeb1cccc18906dD1`](https://sepolia.arbiscan.io/address/0xe66b2f638f5db738243a44f7aeb1cccc18906dd1) ✅                                                                                                                                                                                                                                                                                                                                                                        |

@@ -6,6 +6,52 @@ Format per §0.2.
 
 ---
 
+## [2026-04-26 F5-followup] Empty-winning-side `freezePool` stuck-state — strict auto-Invalid fix in MarketImpl v5
+
+**Expected (per PRD §5.3 + §6.1):** A market with zero pool on the resolved-winning side is a degenerate but legitimate state — losers should be able to recover their stakes via the standard Invalid path.
+**Actual (pre-fix):** `freezePool` unconditionally transitioned `Resolving → ClaimWindow` regardless of whether the winning side had any bets. With `winningSideTotal == 0`:
+
+1. `claimWinnings` reverts `NoWinningPosition` for every caller (no one has a bet on the winning side).
+2. `markInvalid` reverts `NotInResolvableState` because the state-guard at `Market.sol:365` allows only `{Open, Closed, Resolving}` — `ClaimWindow` is excluded.
+3. **Consequence:** all locked pool funds (the entire losing-side pool) are unrecoverable forever.
+
+   Reproducer: alice bets NO 100, bob bets NO 100, admin resolves YES, freezePool succeeds with `yesPoolFrozen=0, noPoolFrozen=200`, market enters ClaimWindow. 200 cUSDC stuck.
+
+   **Reason:** the state-machine design assumed every resolution had non-zero winning-side liquidity, which is false for thin testnet markets and any production market where the consensus belief turns out to be unanimous-but-wrong.
+   **Impact:** ships as MarketImpl v5. `freezePool` now checks `winningSide == 0` after the public-decryption proofs are validated; if so, transitions directly to `Invalid` (re-marks `_outcome = INVALID`, emits `MarketInvalidated`, skips emitting `ClaimWindowOpened`). Losers then recover via the existing `refundIfInvalid` path. EIP-1167 clones predating v5 (Markets 1–6) retain the original behavior — operator must avoid resolving thin-side markets to the empty side until the demo migrates clones.
+   **Decision: STRICT fix.** Only zero-WINNING-side auto-Invalids. Zero-LOSING-side stays on the Resolved/ClaimWindow path because the proportional formula `payout = userBet * userBet / userBet = userBet` resolves cleanly — winners get exactly their stake back (minus fee), losers had no chance to begin with. That's a degenerate but legitimate resolution, not a stuck-state.
+
+   **Symmetric alternative considered, rejected:** treating zero-LOSING-side as Invalid too would make UX cleaner ("Invalid → refund" rather than "Resolved → claim → got my own money back"), but it conflates "math is degenerate" with "market broke." The formula is well-defined and the funds aren't stuck — strict fix preserves semantic distinction.
+
+   v5 also subsumes the F5 payout logic; v4 is now legacy. Tests added under `test_FreezePool_F5fu_*` in `Market.t.sol`.
+
+---
+
+## [2026-04-26 F5-followup] Synchronous on-chain MIN_BET enforcement infeasible in Nox v0.1.0 — accepted as known limitation
+
+**Expected (operator concern):** `Market.placeBet` should reject dust-amount bets via encrypted comparison + `require`, preventing event-spam griefing.
+**Actual:** Nox v0.1.0's encrypted comparison primitives (`Nox.ge`, `Nox.lt`, etc.) return an `ebool` whose decryption requires `Nox.publicDecrypt(handle, decryptionProof)` ([Nox.sol:1222](contracts/lib/nox-protocol-contracts/contracts/sdk/Nox.sol#L1222)). The decryption proof must be issued off-chain by the Nox gateway — it cannot be produced in the same transaction as the comparison. Therefore a synchronous `require(amount >= MIN_BET)` against an encrypted bet amount is structurally impossible.
+
+Three alternatives were evaluated:
+
+- **Silent clamp via `Nox.select`** (zero out dust amounts before `confidentialTransferFrom`): closes the economic griefing vector but leaves event-spam open (`BetPlaced`, `totalBetCount` still increment) AND introduces a per-side lockout footgun — a user who attempts a dust bet by accident initializes `_yesBet[user]` to encrypted-zero, blocking any subsequent real bet on that side via the existing `AlreadyBetThisSide` guard. Half-fix is worse than honest documentation.
+- **Plaintext `MIN_BET` argument** (caller passes plaintext amount alongside encrypted handle): defeats the project's privacy thesis on every transaction. Non-starter.
+- **Document as known limitation:** matches PRD §0.5 ("if something can't be live, the demo says so"). Attack cost is sub-$0.001/tx on Arbitrum, attacker pays gas with no economic upside, max harm is event-log inflation.
+
+  **Reason:** Nox protocol design predates the operator's threat model for confidential prediction markets. The async-only decrypt pattern is fine for batched analytics but breaks transactional `require`-style validation against private inputs.
+  **Impact:** added KNOWN_LIMITATIONS entry "Dust-bet spam not synchronously prevented (F5-followup)" with full attack-surface analysis. Forwarded to iExec/Nox team as a real DX gap proposal in `iexec-feedback.md` (sync `ebool` reveal for `require()` patterns is the cleanest API addition).
+  **Decision:** No code change to `placeBet`. Frontend-side input minimum + debounce is the realistic v1 mitigation when F6 web ships.
+
+---
+
+## [2026-04-26 F5-followup] Pari-mutuel imbalance accepted as v1 design choice
+
+**Expected (operator concern):** verify the protocol handles imbalanced pools acceptably.
+**Actual:** payout math `userBet * totalPool / winningSide` is mathematically correct (no funds lost or generated); it's the implicit-odds shape that gets extreme on imbalanced pools. With 95/5 (YES:NO) and YES wins, each YES winner gets ~1.05× stake; with 5/95 and YES wins, each YES winner gets ~20× stake. Intrinsic to pari-mutuel.
+**Decision:** documented in KNOWN_LIMITATIONS with comparison to Polymarket (CPMM avoids imbalance via slippage but has LP cold-start) and Kalshi (orderbook avoids it via matched bets but has counterparty cold-start). v2 roadmap fix: liquidity-bootstrapping subsidy from `FeeVault` accumulation.
+
+---
+
 ## [2026-04-25 F4] PRD §5.4.1 BTC/USD aggregator address misattributed; no Chainlink feeds on Arb Sepolia
 
 **Expected (per PRD v1.3 §5.4.1):** BTC/USD Aggregator at `0x942d00008D658dbB40745BBEc89A93c253f9B882` on Arbitrum Sepolia + L2 Sequencer Uptime Feed available on Arb Sepolia.

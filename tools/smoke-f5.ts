@@ -48,6 +48,7 @@ type Deployment = {
     ResolutionOracle: Hex;
     PreResolvedOracle: Hex;
     MarketImplementation_v4?: Hex;
+    MarketImplementation_v5?: Hex;
   };
   safe: {address: Hex; threshold: number; signers: Hex[]};
 };
@@ -162,6 +163,7 @@ async function main(): Promise<void> {
   console.log(`[smoke-f5] Registry: ${deployment.contracts.MarketRegistry}`);
   console.log(
     `[smoke-f5] MktImplV4:${deployment.contracts.MarketImplementation_v4 ?? "(not in deployments)"}`,
+    `[smoke-f5] MktImplV5:${deployment.contracts.MarketImplementation_v5 ?? "(not in deployments)"}`,
   );
   console.log(`[smoke-f5] ResOracle:${deployment.contracts.ResolutionOracle}\n`);
 
@@ -191,19 +193,26 @@ async function main(): Promise<void> {
     });
   }
 
-  // Guard: registry must point at v4 before running the F5 smoke.
-  await timed("check-registry-impl-v4", async () => {
+  // Guard: registry must point at the latest MarketImpl (v5 since F5-followup,
+  // previously v4 in F5). v5 is a strict superset of v4 — same payout math plus
+  // the empty-winning-side auto-Invalid fix in `freezePool` — so this smoke's
+  // ClaimSettled assertions hold for both. Prefer v5 if present.
+  await timed("check-registry-impl-current", async () => {
     const impl = (await publicClient.readContract({
       address: deployment.contracts.MarketRegistry,
       abi: REGISTRY_ABI,
       functionName: "marketImplementation",
     })) as Hex;
-    const v4 = deployment.contracts.MarketImplementation_v4;
-    if (!v4) throw new Error("MarketImplementation_v4 not in deployments — run deploy-f5.ts first");
-    if (impl.toLowerCase() !== v4.toLowerCase()) {
-      throw new Error(`registry.marketImplementation()=${impl} != v4=${v4}; run deploy-f5.ts first`);
+    const expected =
+      deployment.contracts.MarketImplementation_v5 ?? deployment.contracts.MarketImplementation_v4;
+    if (!expected) {
+      throw new Error("Neither MarketImplementation_v5 nor _v4 in deployments — run deploy-f5 first");
     }
-    console.log(`[smoke-f5] registry.marketImplementation() == v4 ✓`);
+    if (impl.toLowerCase() !== expected.toLowerCase()) {
+      throw new Error(`registry.marketImplementation()=${impl} != expected=${expected}`);
+    }
+    const tag = deployment.contracts.MarketImplementation_v5 ? "v5" : "v4";
+    console.log(`[smoke-f5] registry.marketImplementation() == ${tag} ✓`);
   });
 
   // Fresh PreResolvedOracle for this smoke run.

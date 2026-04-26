@@ -3,7 +3,7 @@
   "contracts": {
     "TestUSDC": "0xf02c982d19184c11b86bc34672441c45fbf0f93e",
     "ConfidentialUSDC": "0xaf1acdf0b031080d4fad75129e74d89ead450c4d",
-    "MarketImplementation": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
+    "MarketImplementation": "0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779",
     "MarketRegistry": "0xe66b2f638f5db738243a44f7aeb1cccc18906dd1",
     "ResolutionOracle": "0x27dc556b9e6c1a031bd779e9524936f70b66b96c",
     "AdminOracle": "0x96b6ecc138a231ddff9e8ea856fb8869b4be103f",
@@ -15,7 +15,8 @@
     "Market_2": "0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
     "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229",
     "MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
-    "MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a"
+    "MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
+    "MarketImplementation_v5": "0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
   "deployedAt": 1777129921,
@@ -31,7 +32,8 @@
     "Market_1": "https://sepolia.arbiscan.io/address/0x98ae591d6d5f31fc6840d9124e58963cc2ec53f7",
     "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
     "MarketImplementation_v3": "https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
-    "MarketImplementation_v4": "https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a"
+    "MarketImplementation_v4": "https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
+    "MarketImplementation_v5": "https://sepolia.arbiscan.io/address/0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779"
   },
   "notes": {
     "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
@@ -45,7 +47,9 @@
     "f4_legacy_MarketImplementation": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
     "f45_marketimpl_swap_tx": "0x89363f9cb8222d83da433e587e07d96bea47c8777457566272ea8adecd6a1060",
     "f5_legacy_MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
-    "f5_marketimpl_swap_tx": "0x03461829bf19ebe1f137b1d53044c22addba9cdbdb9156d28bb69cfc893d98ff"
+    "f5_marketimpl_swap_tx": "0x03461829bf19ebe1f137b1d53044c22addba9cdbdb9156d28bb69cfc893d98ff",
+    "f5fu_legacy_MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
+    "f5fu_marketimpl_swap_tx": "0xfb62be64fb3a7a4b0658ff3140fc3e1711e58c51e572a19d07e81b27872830b2"
   },
   "safe": {
     "address": "0x042a49628f8A107C476B01bE8edEbB38110FA332",

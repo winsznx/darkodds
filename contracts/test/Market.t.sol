@@ -750,6 +750,108 @@ contract MarketTest is Test {
         market.claimWinnings();
     }
 
+    // ---- F5-followup edge case tests: empty-winning-side handling ----
+
+    /// @dev Drives a market to Resolving with adminOracle for outcome=1 (YES),
+    ///      then exposes raw freezePool so the caller can supply arbitrary
+    ///      plaintext totals for both pools. Used by empty-side tests.
+    function _resolveToYes_RawFreeze(uint256 yesPlain, uint256 noPlain) internal {
+        vm.warp(expiryTs);
+        market.closeMarket();
+
+        bytes32 salt = keccak256("empty-side");
+        bytes32 commitment = keccak256(abi.encode(uint8(1), salt));
+        vm.prank(OWNER);
+        adminOracle.commit(mid, commitment);
+        vm.warp(block.timestamp + adminOracle.REVEAL_DELAY() + 1);
+        vm.prank(OWNER);
+        adminOracle.reveal(mid, uint8(1), salt);
+
+        market.resolveOracle();
+        assertEq(uint8(market.state()), uint8(IMarket.State.Resolving));
+
+        bytes32 yesHandle = euint256.unwrap(market.yesPoolPublishedHandle());
+        bytes32 noHandle = euint256.unwrap(market.noPoolPublishedHandle());
+        bytes memory yesProof = TestHelper.buildDecryptionProof(yesHandle, abi.encode(yesPlain), GATEWAY_KEY);
+        bytes memory noProof = TestHelper.buildDecryptionProof(noHandle, abi.encode(noPlain), GATEWAY_KEY);
+        market.freezePool(yesProof, noProof);
+    }
+
+    /// @notice Empty-winning-side: outcome=YES but yesPoolFrozen==0. F5-followup
+    ///         strict fix transitions the market straight to Invalid (instead of
+    ///         ClaimWindow) so losers can refundIfInvalid. Pre-fix this state
+    ///         was reachable but unrecoverable — claimWinnings reverts for
+    ///         everyone (NoWinningPosition) and markInvalid disallows
+    ///         ClaimWindow → funds locked forever.
+    function test_FreezePool_F5fu_EmptyWinningSide_AutoInvalidates() public {
+        // Alice bets NO only — no one bets YES.
+        _placeBet(alice, 0, BET_AMOUNT);
+        _resolveToYes_RawFreeze(0, BET_AMOUNT);
+
+        // State must be Invalid, not ClaimWindow.
+        assertEq(uint8(market.state()), uint8(IMarket.State.Invalid));
+        assertEq(market.outcome(), uint8(IMarket.Outcome.INVALID));
+        assertEq(market.claimWindowOpensAt(), 0, "claimWindowOpensAt must remain unset");
+    }
+
+    function test_FreezePool_F5fu_EmptyWinningSide_EmitsMarketInvalidated() public {
+        _placeBet(alice, 0, BET_AMOUNT);
+
+        vm.recordLogs();
+        _resolveToYes_RawFreeze(0, BET_AMOUNT);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 invalidatedTopic = keccak256("MarketInvalidated(uint256)");
+        bytes32 claimOpenedTopic = keccak256("ClaimWindowOpened(uint256)");
+        bool foundInvalidated;
+        bool foundClaimOpened;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter != address(market)) continue;
+            if (logs[i].topics[0] == invalidatedTopic) foundInvalidated = true;
+            if (logs[i].topics[0] == claimOpenedTopic) foundClaimOpened = true;
+        }
+        assertTrue(foundInvalidated, "MarketInvalidated not emitted on empty-winning-side");
+        assertFalse(foundClaimOpened, "ClaimWindowOpened must NOT emit on empty-winning-side");
+    }
+
+    function test_FreezePool_F5fu_EmptyWinningSide_LoserCanRefund() public {
+        _placeBet(alice, 0, BET_AMOUNT);
+        _resolveToYes_RawFreeze(0, BET_AMOUNT);
+
+        // Alice has a NO bet, market is Invalid → refundIfInvalid is the path.
+        assertTrue(euint256.unwrap(market.noBet(alice)) != bytes32(0));
+
+        vm.prank(alice);
+        bytes32 refundHandle = market.refundIfInvalid();
+        assertTrue(refundHandle != bytes32(0));
+        assertEq(euint256.unwrap(market.noBet(alice)), bytes32(0));
+    }
+
+    /// @notice Empty-LOSING-side: outcome=YES with noPoolFrozen==0 is a degenerate
+    ///         but legitimate resolution. Winners get exactly their stake back
+    ///         (payout = userBet * userBet / userBet = userBet, minus protocol
+    ///         fee). Stays on the Resolved/ClaimWindow path per the strict fix
+    ///         documented in DRIFT_LOG F5-followup.
+    function test_FreezePool_F5fu_EmptyLosingSide_StaysClaimWindow() public {
+        _placeBet(alice, 1, BET_AMOUNT);
+        _resolveToYes_RawFreeze(BET_AMOUNT, 0);
+
+        // State must be ClaimWindow (the existing happy path), not Invalid.
+        assertEq(uint8(market.state()), uint8(IMarket.State.ClaimWindow));
+        assertEq(market.outcome(), uint8(1));
+        assertGt(market.claimWindowOpensAt(), 0);
+    }
+
+    function test_FreezePool_F5fu_EmptyLosingSide_WinnerClaimsBreakEven() public {
+        _placeBet(alice, 1, BET_AMOUNT);
+        _resolveToYes_RawFreeze(BET_AMOUNT, 0);
+
+        vm.warp(market.claimWindowOpensAt() + 1);
+        vm.prank(alice);
+        market.claimWinnings();
+        assertTrue(market.hasClaimed(alice));
+    }
+
     function test_RefundIfInvalid_RevertsWhenNotInvalid() public {
         vm.expectRevert(Market.NotInvalid.selector);
         vm.prank(alice);

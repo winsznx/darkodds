@@ -518,3 +518,76 @@ The ChainGPT auditor's tone is generic-LLM, but it caught real architectural con
 | **Total F4.5 chain ops**                                                   | **~4.5M gas**      | **~0.000456 ETH** |
 
 Slither install + run was free.
+
+---
+
+## F5-followup — DX gap: synchronous `require()` on encrypted comparison
+
+Caught while implementing a bet-floor concern in `Market.placeBet`. The intuitive
+guard for "reject dust amounts" is
+
+```solidity
+ebool isAboveFloor = Nox.ge(betAmount, Nox.toEuint256(MIN_BET));
+require(_revealSync(isAboveFloor), "BetTooSmall");
+```
+
+…but `_revealSync` does not exist. `Nox.publicDecrypt(ebool, bytes)` ([Nox.sol:1222](contracts/lib/nox-protocol-contracts/contracts/sdk/Nox.sol#L1222))
+needs a gateway-issued decryption proof, which is a same-transaction
+chicken-and-egg: the proof is produced off-chain _after_ the comparison handle
+exists on-chain, so it cannot ride in the same transaction as the
+comparison.
+
+### Concrete impact in our build
+
+We could not enforce a minimum bet amount in `placeBet`. The two workable
+alternatives both have material downsides:
+
+- **Silent clamp via `Nox.select`** (zero out dust before `confidentialTransferFrom`):
+  closes economic griefing but leaves event-spam open AND introduces a per-side
+  lockout footgun (initializing `_yesBet[user]` to encrypted-zero blocks any
+  subsequent real bet on that side via `AlreadyBetThisSide`).
+- **Plaintext minimum argument** in the function signature: defeats the entire
+  privacy thesis on every transaction. Non-starter for a confidential market.
+
+We documented this as a known limitation rather than half-fixing. See
+`KNOWN_LIMITATIONS.md` "Dust-bet spam not synchronously prevented (F5-followup)"
+and `DRIFT_LOG.md` "F5-followup ... MIN_BET enforcement infeasible".
+
+### Proposal: same-transaction `ebool` reveal for `require()` patterns
+
+A protocol primitive that lets a contract synchronously reveal a _boolean_
+comparison result for the express purpose of access control / input
+validation. Sketch of the API:
+
+```solidity
+// Reverts on false. Implementation: TEE-side fast-path that processes the
+// comparison handle inline against the calling tx's state. Bool-only — no
+// integer reveals — preserves privacy of operands.
+function requireTrue(ebool handle) internal;
+
+// Or, if a sync-revealing op fits the model better:
+function decryptBoolImmediate(ebool handle) internal returns (bool);
+```
+
+The privacy property to preserve: only a **boolean** is revealed (not the
+operands). For comparison-against-public-constant cases like `bet >= MIN_BET`,
+the only secret being protected is whether the _user's specific input_ passed
+the threshold — which is far less sensitive than the input value itself, and
+revealing it is exactly the access control the contract author wants.
+
+Concrete use cases in confidential apps:
+
+- bet floors / spend limits in confidential markets and DeFi
+- per-user transfer caps (`require(transferred <= dailyLimit)`)
+- confidential rate-limiting (`require(callsThisHour < N)`)
+- KYC tier enforcement against encrypted score (`require(kycScore >= TIER_2)`)
+
+zama/fhEVM solves the analogous problem with `FHE.decrypt()` against a
+decryption oracle, which their docs frame as the canonical pattern for
+"reverting on encrypted preconditions." Nox's async-only model is a strict
+subset of that capability, and the gap shows up immediately the first time a
+contract author wants `require(encryptedThing)`.
+
+DX rating, this specific issue: 4/10 — the workaround is to write a known
+limitation. The thing the developer wants to write doesn't compile in a way
+that maps to their mental model.

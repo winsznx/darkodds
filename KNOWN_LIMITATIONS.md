@@ -5,6 +5,86 @@ Read alongside `DRIFT_LOG.md` (process drift) and `BUG_LOG.md` (resolved bugs).
 
 ---
 
+## Pari-mutuel imbalance accepted in v1
+
+DarkOdds uses a pari-mutuel payout: `payout = userBet * totalPool / winningSide`.
+When the YES and NO pools are imbalanced, the overweight side gets a bad payout
+because the same total pool is split across more bettors. Concrete shape:
+
+- Pool ratio 95/5 (YES:NO) and YES wins → each YES winner gets ~1.05× their bet.
+- Pool ratio 5/95 (YES:NO) and YES wins → each YES winner gets ~20× their bet.
+
+The math is correct (no funds lost, no surplus generated) — it's just that the
+"odds" implied by a small minority are extreme, and the majority side only
+recovers a thin margin over their stake. This is intrinsic to pari-mutuel, not
+a contract bug.
+
+### Why we accept this for v1
+
+- **Privacy is the wedge.** Confidential bet sizes is what differentiates
+  DarkOdds from Polymarket / Kalshi. Liquidity efficiency is the v2 problem.
+- **Demo markets are small.** Hackathon judges interact with markets that have
+  3–5 manually-funded bettors; imbalance is artificial, not a real liquidity
+  gap users would experience.
+- **No mid-market price feed exists yet.** Polymarket fixes imbalance via CPMM
+  AMM curves; that adds price discovery surface that we haven't designed. Out
+  of scope for the privacy-MVP.
+
+### Comparison to existing markets
+
+| Protocol     | Mechanism               | Imbalance behavior                  | Cold-start cost        |
+| ------------ | ----------------------- | ----------------------------------- | ---------------------- |
+| **DarkOdds** | Pari-mutuel             | Implicit odds drift to extremes     | Zero — first bet works |
+| Polymarket   | CPMM (LMSR-derived)     | Smooth — slippage absorbs imbalance | LP must seed liquidity |
+| Kalshi       | Central limit orderbook | None — only matched bets clear      | Need a counterparty    |
+
+Pari-mutuel + zero cold-start matches our hackathon constraint better than
+either competitor's mechanism.
+
+### v2 roadmap fix
+
+A liquidity-bootstrapping subsidy where the protocol deposits a balancing pool
+funded by `FeeVault` accumulation. When a market opens, the subsidy seeds both
+sides equally; as bets arrive, the subsidy gets gradually refunded back to the
+vault. This converges to pari-mutuel as the market matures while keeping the
+imbalance bounded. Documented in PRD §16 follow-on work.
+
+## Dust-bet spam not synchronously prevented (F5-followup)
+
+`Market.placeBet` does not enforce a minimum bet amount. Nox v0.1.0's `Nox.ge`
+returns an `ebool` whose decryption requires an off-chain-issued gateway proof
+— that proof cannot be produced inside the same transaction as the comparison,
+so a synchronous `require(amount >= MIN_BET)` against an encrypted bet is
+structurally impossible in this protocol version.
+
+Attack surface: an adversary can submit dust-amount bets that pass through
+`confidentialTransferFrom` and inflate `BetPlaced` events / `totalBetCount`.
+Cost to attacker on Arbitrum: <$0.001/tx. Cost to bettors: zero (their pools
+and payouts are unaffected — dust contributes to the side it's bet on at
+face value).
+
+### Why we accept rather than partially fix
+
+A "silent clamp" patch (`Nox.select` zeroing dust amounts) closes the economic
+vector but leaves event-spam open and introduces a per-side lockout footgun
+where a user who attempts a dust bet by accident initializes their side to
+zero and can't place a real bet on that side later. The half-fix is worse
+than the documented honesty.
+
+A "plaintext minimum" via an extra plaintext bet-amount argument breaks the
+privacy thesis on every transaction — bet sizes become public. Non-starter.
+
+### Production roadmap
+
+When Nox ships synchronous encrypted comparison or a same-transaction
+`publicDecrypt` fast-path, this becomes a one-line `require`. Until then,
+off-chain rate-limit on the frontend (debounce, minimum-amount client
+validation) is the realistic mitigation, with the contract behavior
+documented as best-effort. The dust attacker still pays gas with no
+economic upside.
+
+See `iexec-feedback.md` for the proposal forwarded to the iExec/Nox team.
+
 ## Multisig governance migrated from EOA in F4.5
 
 All seven Ownable contracts (TestUSDC, MarketRegistry, ResolutionOracle,

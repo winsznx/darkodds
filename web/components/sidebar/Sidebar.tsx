@@ -16,10 +16,10 @@ export function Sidebar({open, onClose}: SidebarProps): React.ReactElement {
       <aside className="sidebar" data-open={open} onClick={onClose}>
         <div className="sidebar-section">§ NAVIGATION</div>
         <nav className="sidebar-nav">
-          <NavItem href="/markets" Icon={Layers} label="MARKETS" badge="F8" />
-          <NavItem href="/portfolio" Icon={LineChart} label="PORTFOLIO" badge="F10" />
-          <NavItem href="/audit" Icon={ScrollText} label="AUDIT" badge="F10" />
-          <NavItem href="/create" Icon={FilePlus} label="CREATE" badge="F11" />
+          <NavItem href="/markets" Icon={Layers} label="MARKETS" />
+          <NavItem href="/portfolio" Icon={LineChart} label="PORTFOLIO" />
+          <NavItem href="/audit" Icon={ScrollText} label="AUDIT" />
+          <NavItem href="/create" Icon={FilePlus} label="CREATE" />
         </nav>
         <ProtocolStats />
       </aside>

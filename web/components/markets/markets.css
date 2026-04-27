@@ -1,0 +1,411 @@
+/* ============================================================
+   /markets — parallel feed UI styles.
+   ============================================================ */
+
+/* ─── filter bar ──────────────────────────────────────────── */
+.markets-filter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.markets-filter .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.markets-filter .filter-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.markets-filter .filter-search {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--hairline-strong);
+  color: var(--fg);
+  border-radius: 0;
+  outline: none;
+}
+.markets-filter .filter-search::placeholder {
+  color: var(--fg-muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.markets-filter .filter-search:focus {
+  border-color: var(--fg);
+}
+.markets-filter .filter-select {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px 6px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 0;
+  cursor: pointer;
+}
+.markets-filter .filter-select:hover {
+  background: var(--hairline);
+}
+
+/* ─── two-column layout ────────────────────────────────────── */
+.markets-feed {
+  display: flex;
+  gap: 32px;
+  align-items: stretch;
+}
+.markets-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.markets-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.markets-column-head .stamp {
+  margin: 0;
+}
+.markets-column-head .count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.markets-cardlist {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── card primitives ──────────────────────────────────────── */
+.mc-card {
+  position: relative;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  padding: 20px 20px 16px;
+}
+.mc-card::after {
+  /* dossier corner clip — top-right hex notch like the F6 .mcard */
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 14px;
+  height: 14px;
+  background: var(--bg-soft);
+  border-left: 1px solid var(--hairline-strong);
+  border-bottom: 1px solid var(--hairline-strong);
+  transform: translate(0, 0);
+  pointer-events: none;
+}
+.mc-card .mc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.mc-card .mc-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-stamp);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  border: 1.5px solid var(--fg);
+  flex-shrink: 0;
+}
+.mc-card .mc-source--do {
+  color: var(--fg);
+}
+.mc-card .mc-source--pm {
+  color: var(--fg-muted);
+}
+.mc-card .mc-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.mc-card .mc-meta .cat {
+  color: var(--fg-secondary);
+}
+.mc-card .mc-question {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  margin: 8px 0 16px;
+  color: var(--fg);
+}
+
+/* outcome row — shared shape on both card types */
+.mc-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.mc-outcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.mc-outcome .lbl {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.mc-outcome .pct {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.mc-outcome--top {
+  background: var(--fg);
+}
+.mc-outcome--top .lbl,
+.mc-outcome--top .pct {
+  color: var(--bg);
+}
+
+/* footer row — pool/volume + CTA */
+.mc-foot {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+.mc-foot .mc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.mc-foot .mc-stat .k {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.mc-foot .mc-stat .v {
+  font-size: 14px;
+  color: var(--fg);
+}
+/* DarkOdds redaction-bar pool stat — the brand element */
+.mc-foot .mc-stat .v.redact-bar {
+  display: inline-block;
+  width: 80px;
+  height: 16px;
+  background: #000;
+  border: 0.5px solid #000;
+}
+
+.mc-cta-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.mc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0;
+  white-space: nowrap;
+}
+.mc-cta:hover:not(:disabled):not([data-disabled="true"]) {
+  background: var(--fg);
+  color: var(--bg);
+}
+.mc-cta[data-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+  border-color: var(--hairline-strong);
+  position: relative;
+}
+.mc-cta[data-disabled="true"]:hover .mc-tip {
+  display: block;
+}
+.mc-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  white-space: nowrap;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* status badges (DarkOdds card) */
+.mc-status {
+  display: inline-block;
+  font-family: var(--font-stamp);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.mc-status--open {
+  color: var(--declassified-amber);
+}
+.mc-status--resolved {
+  color: var(--fg);
+}
+.mc-status--invalid {
+  color: var(--redacted-red);
+}
+
+/* ─── empty / error states ─────────────────────────────────── */
+.markets-empty {
+  border: 1px dashed var(--hairline-strong);
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-soft);
+  text-align: center;
+}
+.markets-empty .stamp {
+  margin-bottom: 8px;
+}
+.markets-empty .lede {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 360px;
+  margin: 0;
+}
+.markets-empty .empty-cta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  padding: 6px 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.markets-empty .empty-cta:hover {
+  background: var(--hairline);
+}
+
+.markets-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--redacted-red);
+  background: var(--bg-soft);
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--redacted-red);
+}
+
+/* ─── responsive ───────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .markets-filter {
+    gap: 12px;
+    padding: 12px;
+  }
+  .markets-feed {
+    flex-direction: column;
+    gap: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .markets-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .markets-filter .filter-group {
+    justify-content: space-between;
+  }
+  .mc-card {
+    padding: 16px;
+  }
+  .mc-card .mc-question {
+    font-size: 16px;
+  }
+  .mc-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .mc-cta-row {
+    align-items: stretch;
+  }
+  .mc-cta {
+    text-align: center;
+    justify-content: center;
+  }
+}

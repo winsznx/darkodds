@@ -9,7 +9,6 @@ interface PagePlaceholderProps {
   num: string;
   title: string;
   emphasis: string;
-  meta: string;
   comingIn: string;
   description: string;
 }
@@ -21,7 +20,6 @@ export function PagePlaceholder({
   num,
   title,
   emphasis,
-  meta,
   comingIn,
   description,
 }: PagePlaceholderProps): React.ReactElement {
@@ -39,7 +37,6 @@ export function PagePlaceholder({
         <h1 className="h">
           {title} <em>{emphasis}</em>
         </h1>
-        <span className="meta">{meta}</span>
       </header>
 
       <section className="page-body">

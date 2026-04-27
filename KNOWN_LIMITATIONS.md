@@ -5,6 +5,72 @@ Read alongside `DRIFT_LOG.md` (process drift) and `BUG_LOG.md` (resolved bugs).
 
 ---
 
+## /markets Polymarket data is display-only — no proxied trading (F8)
+
+`/markets` renders Polymarket markets in the right column via the Gamma read
+APIs (`gamma-api.polymarket.com/markets`, no auth). We do NOT execute trades
+on Polymarket through our app, and there are no embedded Polymarket trading
+widgets. The "VIEW ON POLYMARKET ↗" CTA is a plain `<a>` with
+`rel="noopener noreferrer"` linking to `polymarket.com/event/<slug>`;
+Polymarket's own domain handles geo-restriction on the destination.
+
+The "MIRROR ON DARKODDS →" CTA is **disabled in F8** with an F11 tooltip.
+When F11 ships, this CTA will spawn a fresh DarkOdds market on Arb Sepolia
+via ChainGPT — separate clone, zero Polymarket trading involvement.
+
+This stance is what the F8 expansion of the PRD §11 specifies and what we
+verified before shipping: viewing public market data is freely allowed
+globally; writes are what Polymarket geo-gates, and we never write.
+
+## /markets/[id] detail page deferred to F9
+
+`/markets` shows cards only. Clicking into a card to see public pool state,
+the order/bet history, recent batch publications, and the (locked) bet form
+is F9 scope. The "PLACE BET →" CTA is disabled in F8 with an F9 tooltip.
+
+## /create market clone + ChainGPT integration deferred to F11
+
+The "MIRROR ON DARKODDS →" CTA on Polymarket cards is disabled in F8 with
+an F11 tooltip. F11 wires ChainGPT to translate a Polymarket question +
+resolution criteria into a DarkOdds market via Safe-cosigned createMarket.
+The data-layer hook is already in place: `getMarketBySlug()` is the function
+F11's `/create` flow will call to seed.
+
+## DarkOdds open-state market odds render `—` until F12 (F8)
+
+For Open-state DarkOdds markets where pools are still encrypted (no
+`freezePool` yet), the cards render `—` for both YES and NO probabilities.
+Computing live odds for these requires `Nox.publicDecrypt` of the published
+pool handles, which means adding `@iexec-nox/handle` to the web workspace.
+Deferred to F12 polish — most current Arb Sepolia markets are past expiry
+and resolved (frozen pools populated → odds compute fine), so `—` only
+shows on freshly-created Open markets in practice. F12 will replace the
+fallback in `web/lib/darkodds/markets.ts` (search for the `F12-HOOK`
+comment).
+
+## Polymarket Gamma rate limit undocumented; we cache 60s server-side
+
+The Polymarket public docs document rate limits for CLOB endpoints but
+not for Gamma read APIs. Our smoke fired 20 list requests in ~2s without
+throttling, but that's empirical, not contractual. We cache server-side
+via Next.js `fetch(url, {next: {revalidate: 60}})` for the list endpoint
+and 30s for single-market lookups. If Gamma starts returning 429s, the
+data layer's retry-once-on-5xx-or-network already handles transient
+failures and the UI degrades to the empty state cleanly.
+
+## Polymarket categorical markets render as flat binary cards (F8)
+
+Polymarket models multi-outcome scenarios as collections of binary
+sub-markets bundled under an event (e.g. `nba-lal-hou-2026-04-26` has 44
+binary sub-markets). F8 renders each Gamma `/markets` row as its own
+binary card; we don't aggregate by event. This means a single sporting
+event can produce many cards in our feed. Acceptable for v1; if the
+density becomes annoying in production we'd group by `eventSlug` in the
+layout. The data layer already populates `eventId` and `eventSlug` per
+market, so the upgrade is UI-only.
+
+---
+
 ## Faucet rate limit: 1,000 tUSDC per 6h per address (F7)
 
 `Faucet.claim()` dispenses exactly 1,000 TestUSDC and locks the caller for 6

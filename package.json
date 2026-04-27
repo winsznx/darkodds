@@ -31,6 +31,7 @@
     "deploy:faucet": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/deploy-faucet.ts'",
     "multisig:mint-faucet": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/multisig-mint-faucet.ts'",
     "verify:f7": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f7.ts \"$@\"' --",
+    "verify:f8": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f8.ts \"$@\"' --",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"

@@ -14,17 +14,19 @@ Polymarket but your bet size is hidden. Built on iExec Nox: outcomes and odds ar
 
 **Phase F4.5** — Security hardening. Slither 0 High / 0 real Medium. Governance migrated to 2-of-3 Gnosis Safe v1.4.1. `MarketImplementation v3` patched for ERC-7984 invariant. smoke-f45 GREEN.
 
-| Phase | Deliverable                                  | Status |
-| ----- | -------------------------------------------- | ------ |
-| P0    | Nox devnet health check                      | ✅     |
-| F1    | Monorepo skeleton                            | ✅     |
-| F2    | `ConfidentialUSDC.sol` + tests + deploy      | ✅     |
-| F3    | `Market.sol` + `MarketRegistry.sol`          | ✅     |
-| F4    | Resolution + Claim                           | ✅     |
-| F4.5  | Security hardening + multisig governance     | ✅     |
-| F5    | On-chain payout (Nox arithmetic)             | ✅     |
-| F6    | Frontend skeleton + design system            | ⏳     |
-| F7–13 | Pages, bet flow, portfolio, ChainGPT, polish | ⏳     |
+| Phase | Deliverable                                        | Status |
+| ----- | -------------------------------------------------- | ------ |
+| P0    | Nox devnet health check                            | ✅     |
+| F1    | Monorepo skeleton                                  | ✅     |
+| F2    | `ConfidentialUSDC.sol` + tests + deploy            | ✅     |
+| F3    | `Market.sol` + `MarketRegistry.sol`                | ✅     |
+| F4    | Resolution + Claim                                 | ✅     |
+| F4.5  | Security hardening + multisig governance           | ✅     |
+| F5    | On-chain payout (Nox arithmetic)                   | ✅     |
+| F6    | Landing (hero + sidebyside + howitworks + stack)   | ✅     |
+| F7    | Dashboard shell + Privy + faucet                   | ✅     |
+| F8    | /markets parallel feed (DarkOdds + Polymarket)     | ✅     |
+| F9–13 | Detail page, bet flow, portfolio, ChainGPT, polish | ⏳     |
 
 See [Darkodds Master PRD v1.3.md](./Darkodds%20Master%20PRD%20v1.3.md) for the full phase plan (active: v1.3, the Nox-native architecture), [DRIFT_LOG.md](./DRIFT_LOG.md) for divergences, [BUG_LOG.md](./BUG_LOG.md) for bugs, [feedback.md](./feedback.md) for iExec/ChainGPT DX feedback, [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) for v1 scope choices.
 

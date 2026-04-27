@@ -740,3 +740,116 @@ auto-provisioning is the right shape for hackathon judges. wagmi v3 + viem
 2.47 + Tanstack Query 5 is mature, fast (Turbopack build hit 9s cold), and
 the type system surfaces real bugs (the `useChainId()` issue caught in
 typecheck, not at runtime).
+
+---
+
+## F8 — Polymarket Gamma API DX, the JSON-stringified-array footgun
+
+Caught while scoping the F8 data layer for `/markets`. We hit the `/markets`
+list endpoint at `https://gamma-api.polymarket.com/markets` (no auth, instant
+HTTP 200) and inspected the response. Two of the most-read fields on every
+market record are typed in the OpenAPI spec as plain `string`:
+
+```yaml
+outcomes:
+  type: string
+  nullable: true
+outcomePrices:
+  type: string
+  nullable: true
+```
+
+…but at runtime they are **JSON-stringified arrays of strings**:
+
+```json
+{
+  "id": "2036399",
+  "outcomes": "[\"Yes\", \"No\"]",
+  "outcomePrices": "[\"0.0015\", \"0.9985\"]"
+}
+```
+
+Every consumer has to remember to call `JSON.parse()` on these two fields and
+then `parseFloat()` each element of `outcomePrices`. The OpenAPI declaration
+is technically correct (yes, the wire value is a string), but it gives type
+generators and IDE autocomplete zero help. A consumer following the spec
+literally will end up with `outcomePrices.length === 16` (string length of
+`"[\"0.0015\", \"0.9985\"]"`) before catching the issue at runtime. We
+caught it during HALT 0 live verification — an agent or human reading the
+spec without running it would not.
+
+### Why this matters more than it looks
+
+This is the highest-traffic field shape in the entire Polymarket data model:
+`outcomes` × `outcomePrices` is what every prediction-market client renders.
+The cost of the foot-gun multiplied by the number of clients is non-trivial.
+
+### Cleanest upstream fixes
+
+1. **OpenAPI: declare them as JSON-encoded inline schemas.**
+
+   ```yaml
+   outcomes:
+     type: string
+     description: "JSON-encoded array of outcome labels"
+     x-json-schema:
+       type: array
+       items: {type: string}
+   outcomePrices:
+     type: string
+     description: "JSON-encoded array of probability strings 0..1, sums to ~1.0"
+     x-json-schema:
+       type: array
+       items: {type: string, pattern: "^[01](\\.[0-9]+)?$"}
+   ```
+
+   The `x-json-schema` extension is a community convention; the description
+   alone — even without the extension — would prevent half the surprise.
+
+2. **At the API layer: parse them server-side and return real arrays.**
+
+   ```jsonc
+   {
+     "outcomes": ["Yes", "No"],
+     "outcomePrices": [0.0015, 0.9985],
+   }
+   ```
+
+   The serialization-as-string smells like an artifact of an older internal
+   storage model. New consumers shouldn't have to know about it.
+
+3. **Document loudly in the API reference.** Right now the
+   `/markets` reference page lists them next to other plain-string fields
+   (`slug`, `question`) with no visual distinction. A "⚠ JSON-encoded"
+   callout on those two fields would catch every consumer.
+
+### Other Gamma observations
+
+- **No documented Gamma rate limit.** 20 list calls in ~2s without auth all
+  returned 200. The dedicated rate-limits docs page covers CLOB, not Gamma.
+  We're caching server-side at 60s revalidate which is conservative; would
+  be helpful to know whether that's overkill or under-budget.
+- **`marketType` and `formatType` are typed as nullable strings but
+  consistently return `null`** on the markets we sampled. If they're not
+  in active use, removing them from the spec would reduce noise. If they
+  are, surfacing what values they take would help.
+- **Categorical/multi-outcome markets aren't a schema variant — they're
+  events with N binary sub-markets.** Documented well enough on the
+  /events page once we found it, but a single-line cross-reference on the
+  `/markets` reference page ("multi-outcome scenarios are modeled as
+  events with multiple binary sub-markets — see `/events`") would have
+  saved 10 minutes of "where are the categorical markets in the schema?"
+
+### What we did about it in DarkOdds
+
+`web/lib/polymarket/client.ts` is the **single** site in the entire codebase
+that calls `JSON.parse(market.outcomes)` / `JSON.parse(market.outcomePrices)`.
+The exposed `PolymarketMarket` type carries `outcomes: PolymarketOutcome[]`
+with a `probability: number` already parsed. Components and the F11 clone
+flow never touch the raw stringified shape. Documented in client.ts source
+comments and enforced by `lib/polymarket/types.ts` not exporting the raw
+`GammaMarketRaw` shape.
+
+DX rating, this specific issue: 5/10. Once you know about the parse, the
+rest of the API is clean and well-shaped. Until you know, it's a real
+"why is `outcomePrices.length` 16?" stumble.

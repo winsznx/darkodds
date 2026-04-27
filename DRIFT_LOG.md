@@ -6,6 +6,36 @@ Format per §0.2.
 
 ---
 
+## [2026-04-27 F8] Polymarket on `/markets` is display-only — no proxied trading
+
+**Expected:** PRD §11 F8 originally framed F8 as "bet flow" (Privy connect, cUSDC wrap, placeBet wired). The expanded F8 prompt re-scopes it to: Polymarket Gamma data layer + `/markets` parallel-feed UI rendering DarkOdds + Polymarket markets side-by-side. Bet flow moves to F9 (own modal + `/markets/[id]` detail).
+**Actual:** /markets renders BOTH feeds. Polymarket integration is **display-only**: we read public market data via Gamma (`gamma-api.polymarket.com/markets`, no auth required) and link out to `polymarket.com/event/<slug>` via plain `<a>` with `rel="noopener noreferrer"`. Polymarket's domain handles geo-restriction on the destination. We do NOT proxy CLOB writes, do NOT embed Polymarket trading widgets, do NOT execute on the user's behalf.
+**Reason:** Polymarket's public data is freely viewable globally; their writes (`place_order` etc.) are gated by their geo-compliance. Our F11 "MIRROR ON DARKODDS" flow creates an entirely separate DarkOdds market on Arb Sepolia via ChainGPT — zero Polymarket trading involvement.
+**Impact:** F8 ships. Future phases (F9 bet flow, F10 portfolio/audit, F11 ChainGPT clone) are unaffected by this stance because none of them write to Polymarket. Documented in `KNOWN_LIMITATIONS.md` and `feedback.md`.
+**Decision:** Approved at HALT 0.
+
+---
+
+## [2026-04-27 F8] DarkOdds Open-state market odds render `—` until F12
+
+**Expected:** Both DarkOdds and Polymarket cards render plaintext probabilities (per F8 constraint #1).
+**Actual:** Polymarket cards always have plaintext odds. DarkOdds cards render odds **only for markets with frozen pools** (post-`freezePool`, i.e. `state ∈ {Resolved, ClaimWindow, Invalid}`). For Open-state markets where pools are still encrypted handles, both YES and NO render `—` because computing live odds requires `Nox.publicDecrypt` of the published pool handles, which would mean adding `@iexec-nox/handle` to `web/`.
+**Reason:** Adding the Nox SDK to web/ is a non-trivial new dependency (~MB bundle weight before tree-shaking, plus a server-side `createHandleClient` config) that crosses out of "F8 polish" territory into a real refactor surface. Most Arb Sepolia markets are already past expiry and have frozen pools, so `—` only appears on freshly-created Open markets — which is rare in practice.
+**Impact:** Cards visually consistent across both columns; the `—` placeholder reads honestly as "odds reveal at first batch." Filter/sort/search all still work on these markets.
+**Decision:** Defer plaintext-odds-on-open-markets to F12 polish. F12 will add `@iexec-nox/handle` server-side and replace the `null` probability fallback in `lib/darkodds/markets.ts:deriveOutcomes` with a `publicDecrypt` round-trip per Open market. Hook: search `// F12-HOOK: live odds via Nox publicDecrypt`.
+
+---
+
+## [2026-04-27 F8] Test-market data debt visible in /markets — clean up in F11
+
+**Expected:** /markets renders presentable market cards.
+**Actual:** Most DarkOdds markets on chain are named after verification scripts (`smoke-f5 INVALID`, `verify-backend-2026-04-26T14-47-59`, etc.) because they were created by F4–F7 lifecycle smokes. They're real markets with real on-chain state, but the names read as developer artifacts on a product page.
+**Reason:** Test infrastructure has been creating markets via Safe-cosigned `MarketRegistry.createMarket` since F4; we have no separate "demo seed" market set.
+**Impact:** F8 screenshots include these test-named cards. Documented and deferred to F11.
+**Decision:** Add to F11 prompt scope — when ChainGPT-driven `/create` ships, also seed 4-5 well-named markets ("Will BTC close above $100K by EOY 2026?", "Will the Fed cut rates in Q3?", etc.) so /markets has presentable DarkOdds content for submission screenshots.
+
+---
+
 ## [2026-04-27 F7] PRD §11 F7 expanded — dashboard shell + Faucet + Privy/wagmi land before market list
 
 **Expected (per PRD §11 F7):** "Build `/` page per §7.4. Build `/market/[id]` page per §7.4. Wire to subgraph for public state (or direct contract reads via Wagmi). Wire `<Redacted>` to Nox SDK `decrypt` for user balance."

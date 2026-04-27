@@ -5,6 +5,62 @@ Read alongside `DRIFT_LOG.md` (process drift) and `BUG_LOG.md` (resolved bugs).
 
 ---
 
+## Faucet rate limit: 1,000 tUSDC per 6h per address (F7)
+
+`Faucet.claim()` dispenses exactly 1,000 TestUSDC and locks the caller for 6
+hours. Per-address basis only — no global rate limit, no per-IP gate.
+
+### Why this number
+
+- 1,000 tUSDC = 10× the `verify-backend` wrap default (100 tUSDC). A demo
+  viewer can run the full lifecycle once and still have headroom to bet again.
+- 6h cooldown × 10K claim cap (10M faucet seed ÷ 1,000) = a single bot
+  attacking continuously needs 60K hours to drain the pool, which gives the
+  Safe ample time to `pause()` before it matters.
+- The cooldown is per-address; an attacker spinning up new wallets pays the gas
+  for every wrap. On Arb Sepolia that's <$0.001/claim — annoying, not
+  economically motivating.
+
+### What it doesn't protect against
+
+- Sybil-style multi-wallet drains. Each fresh address claims once. If a
+  dedicated attacker spins up 10K wallets and gas costs are $10, they can drain
+  the faucet for $10,000-equivalent of test funds. We accept this as a testnet
+  hackathon risk: the tUSDC has no production value, and the Safe's `pause()`
+  is one Safe-cosigned tx away.
+- Flash-loan-style abuse. Faucet doesn't wrap, doesn't approve, doesn't grant
+  any allowance — just `safeTransfer`. No reentry surface (also locked behind
+  `nonReentrant`).
+
+### Production roadmap
+
+- Privy ID gate: `claim()` could check a Privy `userId` signature so each
+  authenticated identity can claim once per cooldown, regardless of how many
+  wallets they spin up. Not in F7 scope; would couple the contract to Privy's
+  auth shape.
+- Captcha gate via on-chain ZK proof of human-ness (e.g. Worldcoin-style).
+
+## Privy embedded wallet UX rough edges accepted in v1 (F7)
+
+Privy's React SDK 3.22.2 and wagmi adapter 4.0.6 ship the headline path
+cleanly: email/Google login → embedded wallet auto-provisioned → wagmi hooks
+work without further glue. Two rough edges we noted but accept for v1:
+
+- **`createOnLogin: 'users-without-wallets'` + first-tx wallet bootstrap
+  latency.** When a user signs in and immediately tries to claim from the
+  faucet, the embedded wallet sometimes isn't fully initialized when the click
+  fires — the wagmi hooks return `address: undefined` for ~200-500ms. The UI
+  handles this gracefully (CONNECT button stays visible until `ready` flips),
+  but a "your wallet is initializing…" toast would be nicer.
+- **Theme prop reactivity.** Privy's modal palette is set at PrivyProvider mount
+  via the `appearance.theme` prop. We sync it through `useTheme()` so a theme
+  toggle re-renders the provider with the new theme — but Privy's modal, if
+  already open at the moment of toggle, doesn't re-style live; it picks up the
+  new theme on next open. Acceptable; documented in feedback.md as a Privy DX
+  ask.
+
+## Pari-mutuel imbalance accepted in v1
+
 ## Pari-mutuel imbalance accepted in v1
 
 DarkOdds uses a pari-mutuel payout: `payout = userBet * totalPool / winningSide`.

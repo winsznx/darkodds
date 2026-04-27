@@ -47,24 +47,25 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-1)" />
 
-                {/* TestUSDC s=44, base (140,168) */}
-                <g transform="translate(140 168)">
+                {/* FIX 2: TestUSDC s=44→57 (30% bump). ISO 30°:
+                    cos30*57=49.4, sin30*57=28.5, height=57 */}
+                <g transform="translate(130 178)">
                   <polygon
-                    points="0,0 38.1,-22 38.1,-66 0,-44"
+                    points="0,0 49.4,-28.5 49.4,-85.5 0,-57"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -38.1,-22 -38.1,-66 0,-44"
+                    points="0,0 -49.4,-28.5 -49.4,-85.5 0,-57"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-44 38.1,-66 0,-88 -38.1,-66"
+                    points="0,-57 49.4,-85.5 0,-114 -49.4,-85.5"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -72,61 +73,66 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     TestUSDC
                   </text>
                 </g>
 
-                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
+                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
+                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
                   <line x1="200" y1="125" x2="276" y2="125" />
-                  <polyline points="270,120 280,125 270,130" strokeLinejoin="round" />
+                  <polyline points="271,121 280,125 271,129" strokeLinejoin="round" />
                 </g>
 
-                {/* cUSDC s=56, base (340,174) */}
-                <g transform="translate(340 174)">
+                {/* FIX 2: cUSDC s=56→73 (30% bump). ISO 30°:
+                    cos30*73=63.2, sin30*73=36.5, height=73 */}
+                <g transform="translate(350 182)">
                   <polygon
-                    points="0,0 48.5,-28 48.5,-84 0,-56"
+                    points="0,0 63.2,-36.5 63.2,-109.5 0,-73"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -48.5,-28 -48.5,-84 0,-56"
+                    points="0,0 -63.2,-36.5 -63.2,-109.5 0,-73"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-56 48.5,-84 0,-112 -48.5,-84"
+                    points="0,-73 63.2,-109.5 0,-146 -63.2,-109.5"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
+                  {/* Small redaction bar on top face */}
                   <rect
-                    x="-22"
-                    y="-90"
-                    width="44"
-                    height="8"
-                    fill="#000000"
-                    transform="skewY(-30) translate(0 12)"
+                    x="-28"
+                    y="-116"
+                    width="56"
+                    height="10"
+                    fill="var(--redaction)"
+                    transform="skewY(-30) translate(0 14)"
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     cUSDC
                   </text>
@@ -167,73 +173,78 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-2)" />
 
-                {/* cUSDC s=44, base (130,170) */}
-                <g transform="translate(130 170)">
+                {/* FIX 2: cUSDC s=44→57 (30% bump). ISO 30°:
+                    cos30*57=49.4, sin30*57=28.5, height=57 */}
+                <g transform="translate(120 180)">
                   <polygon
-                    points="0,0 38.1,-22 38.1,-66 0,-44"
+                    points="0,0 49.4,-28.5 49.4,-85.5 0,-57"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -38.1,-22 -38.1,-66 0,-44"
+                    points="0,0 -49.4,-28.5 -49.4,-85.5 0,-57"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-44 38.1,-66 0,-88 -38.1,-66"
+                    points="0,-57 49.4,-85.5 0,-114 -49.4,-85.5"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
+                  {/* Small redaction bar on top face */}
                   <rect
-                    x="-17"
-                    y="-70"
-                    width="34"
-                    height="6"
-                    fill="#000000"
-                    transform="skewY(-30) translate(0 9)"
+                    x="-22"
+                    y="-92"
+                    width="44"
+                    height="8"
+                    fill="var(--redaction)"
+                    transform="skewY(-30) translate(0 12)"
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     cUSDC
                   </text>
                 </g>
 
-                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
+                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
+                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
                   <line x1="190" y1="125" x2="266" y2="125" />
-                  <polyline points="260,120 270,125 260,130" strokeLinejoin="round" />
+                  <polyline points="261,121 270,125 261,129" strokeLinejoin="round" />
                 </g>
 
-                {/* MARKET s=64, base (350,180) */}
-                <g transform="translate(350 180)">
+                {/* FIX 2: MARKET s=64→83 (30% bump). ISO 30°:
+                    cos30*83=71.9, sin30*83=41.5, height=83 */}
+                <g transform="translate(350 190)">
                   <polygon
-                    points="0,0 55.4,-32 55.4,-96 0,-64"
+                    points="0,0 71.9,-41.5 71.9,-124.5 0,-83"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -55.4,-32 -55.4,-96 0,-64"
+                    points="0,0 -71.9,-41.5 -71.9,-124.5 0,-83"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-64 55.4,-96 0,-128 -55.4,-96"
+                    points="0,-83 71.9,-124.5 0,-166 -71.9,-124.5"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -241,39 +252,47 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     MARKET
                   </text>
                 </g>
 
-                <g transform="translate(350 50) rotate(-2)">
-                  <rect x="-30" y="-7" width="60" height="14" fill="#000000" />
+                {/* FIX 2: "BET" redaction bar — 16px tall, partially overlaps
+                    top of MARKET cube, slight -2° rotation.
+                    MARKET cube top-face apex is at (350, 190-166) = (350, 24).
+                    Bar sits just above top face, overlapping ~30% into it. */}
+                <g transform="translate(350 38) rotate(-2)">
+                  <rect x="-36" y="-8" width="72" height="16" fill="var(--redaction)" />
                   <text
                     x="0"
-                    y="3"
+                    y="4"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="8"
-                    letterSpacing="1"
-                    fill="#F5F1E8"
+                    fontSize="9"
+                    letterSpacing="0.1em"
+                    fill="var(--bone, #f5f1e8)"
+                    style={{textTransform: "uppercase"}}
                   >
                     BET
                   </text>
                 </g>
+                {/* Dashed connector from BET bar to MARKET cube top */}
                 <line
                   x1="350"
-                  y1="64"
+                  y1="46"
                   x2="350"
-                  y2="84"
+                  y2="66"
                   stroke="var(--illo-stroke)"
-                  strokeWidth="1"
-                  strokeDasharray="3 3"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                  opacity="0.8"
                 />
 
                 <text
@@ -323,24 +342,25 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-3)" />
 
-                {/* MARKET s=52, base (135,158) */}
-                <g transform="translate(135 158)">
+                {/* FIX 2: MARKET s=52→68 (30% bump). ISO 30°:
+                    cos30*68=58.9, sin30*68=34, height=68 */}
+                <g transform="translate(125 170)">
                   <polygon
-                    points="0,0 45,-26 45,-78 0,-52"
+                    points="0,0 58.9,-34 58.9,-102 0,-68"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -45,-26 -45,-78 0,-52"
+                    points="0,0 -58.9,-34 -58.9,-102 0,-68"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-52 45,-78 0,-104 -45,-78"
+                    points="0,-68 58.9,-102 0,-136 -58.9,-102"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -348,112 +368,111 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     MARKET
                   </text>
                   <text
                     x="0"
-                    y="34"
+                    y="26"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
                     fontSize="9"
-                    letterSpacing="1.6"
+                    letterSpacing="0.18em"
                     fill="var(--illo-stroke)"
                     opacity="0.6"
+                    style={{textTransform: "uppercase"}}
                   >
                     RESOLVED
                   </text>
                 </g>
 
-                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
-                  <line x1="200" y1="115" x2="276" y2="115" />
-                  <polyline points="270,110 280,115 270,120" strokeLinejoin="round" />
+                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
+                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
+                  <line x1="205" y1="115" x2="276" y2="115" />
+                  <polyline points="271,111 280,115 271,119" strokeLinejoin="round" />
                 </g>
 
-                {/* PAYOUT s=52, base (345,158) */}
-                <g transform="translate(345 158)">
+                {/* FIX 2: PAYOUT s=52→68 (30% bump). ISO 30°:
+                    cos30*68=58.9, sin30*68=34, height=68 */}
+                <g transform="translate(355 170)">
                   <polygon
-                    points="0,0 45,-26 45,-78 0,-52"
+                    points="0,0 58.9,-34 58.9,-102 0,-68"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -45,-26 -45,-78 0,-52"
+                    points="0,0 -58.9,-34 -58.9,-102 0,-68"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-52 45,-78 0,-104 -45,-78"
+                    points="0,-68 58.9,-102 0,-136 -58.9,-102"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
+                  {/* Redaction bar on top face */}
                   <rect
-                    x="-20"
-                    y="-82"
-                    width="40"
-                    height="7"
-                    fill="#000000"
-                    transform="skewY(-30) translate(0 11)"
+                    x="-26"
+                    y="-108"
+                    width="52"
+                    height="9"
+                    fill="var(--redaction)"
+                    transform="skewY(-30) translate(0 14)"
                   />
                   <text
                     x="0"
-                    y="20"
+                    y="12"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="10"
-                    letterSpacing="0.8"
+                    fontSize="11"
+                    letterSpacing="0.1em"
                     fill="var(--illo-stroke)"
+                    style={{textTransform: "uppercase"}}
                   >
                     PAYOUT
                   </text>
                 </g>
 
-                <g transform="translate(240 210) rotate(-2)">
+                {/* FIX 2: ATTESTATION // SELECTIVE-DISCLOSURE stamp.
+                    Positioned with 24px clearance from cubes and column edge.
+                    Cubes end at y=182 (base 170 + 12px label). Stamp at y=170+24=194 min.
+                    Using y=196. Narrowed to avoid clipping column edges. */}
+                <g transform="translate(240 196) rotate(-2)">
                   <rect
-                    x="-90"
-                    y="-12"
-                    width="180"
-                    height="22"
+                    x="-84"
+                    y="-10"
+                    width="168"
+                    height="20"
                     fill="none"
                     stroke="var(--redacted-red)"
                     strokeWidth="1.5"
                   />
                   <text
                     x="0"
-                    y="3"
+                    y="4"
                     textAnchor="middle"
                     fontFamily="'Special Elite', monospace"
-                    fontSize="10"
-                    letterSpacing="1.4"
+                    fontSize="9"
+                    letterSpacing="0.12em"
                     fill="var(--redacted-red)"
+                    style={{textTransform: "uppercase"}}
                   >
                     ATTESTATION // SELECTIVE-DISCLOSURE
                   </text>
                 </g>
-                <text
-                  x="240"
-                  y="234"
-                  textAnchor="middle"
-                  fontFamily="'Geist Mono', monospace"
-                  fontSize="8"
-                  letterSpacing="1.2"
-                  fill="var(--illo-stroke)"
-                  opacity="0.6"
-                >
-                  OPTIONAL — RECIPIENT-BOUND OR BEARER MODE
-                </text>
               </svg>
             </div>
 

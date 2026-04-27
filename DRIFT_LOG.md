@@ -6,6 +6,46 @@ Format per §0.2.
 
 ---
 
+## [2026-04-27 F7] PRD §11 F7 expanded — dashboard shell + Faucet + Privy/wagmi land before market list
+
+**Expected (per PRD §11 F7):** "Build `/` page per §7.4. Build `/market/[id]` page per §7.4. Wire to subgraph for public state (or direct contract reads via Wagmi). Wire `<Redacted>` to Nox SDK `decrypt` for user balance."
+**Actual:** F7 reorganized to ship the dashboard _shell_ (topbar + sidebar + Privy auth + wagmi providers + Faucet contract + Faucet modal + 4 route placeholders + protocol-stats sidebar), with the actual market-list and market-detail UI deferred to F8/F9. Same total scope, different phase boundaries.
+
+**Reason:** Two of the F7 PRD requirements (`/market/[id]` and live `<Redacted>` decrypt) depend on a market-card data layer that hadn't been designed yet — Polymarket Model C integration is an F8 prompt. Splitting the scope so F7 ships the auth + wallet + chain plumbing as a standalone phase produces a cleaner judgeable artifact (a working dashboard with real chain reads + working faucet + connected wallets) without coupling it to a half-built market list.
+**Impact:** F7 commit `phase(F7): dashboard shell + Privy + faucet live` ships the shell. F8 will own market list + Polymarket data layer. F9 owns market detail + bet flow modal. F10 owns portfolio + audit. F11 owns ChainGPT-driven create. Total work still maps to PRD §11; just re-bucketed.
+**Decision:** Operator-approved during F7 prompt. Documented here so future readers don't think we skipped F7's market-list deliverable — it moved to F8.
+
+---
+
+## [2026-04-27 F7] wagmi 3.6.5 instead of v2 — latest stable major
+
+**Expected (per F7 prompt):** "wagmi v2"
+**Actual:** wagmi has shipped a 3.x major. Latest stable as of install: `wagmi@3.6.5` (peers `viem: 2.x`, `@tanstack/react-query: >=5`, `react: >=18`). The Privy wagmi adapter `@privy-io/wagmi@4.0.6` peers `wagmi: >=2`, so 3.x works.
+**Reason:** Operator's instruction was "Read FRESH docs, don't trust training memory" — the docs and npm view both confirmed v3 as current. F7 prompt's "v2" was a snapshot from earlier planning.
+**Impact:** Pinned `wagmi@3.6.5` exact in `web/package.json`. API surface used (`useAccount`, `useReadContract`, `useWriteContract`, `useWaitForTransactionReceipt`, `useSwitchChain`, `useBalance`, type-augmentation via `declare module "wagmi"`) is fully compatible with v3.
+**Decision:** Use latest stable. Documented in feedback.md.
+
+---
+
+## [2026-04-27 F7] viem pinned to 2.47.12 (not 2.48.4) in web workspace
+
+**Expected:** repo-wide consistent viem.
+**Actual:** Root has `viem@2.48.4` (used by tools/\* server-side scripts). Web workspace pinned `viem@2.47.12` because `@privy-io/wagmi@4.0.6` declares an exact peer `viem: 2.47.12`. Higher minor would be `npm install` warn, not block, but pinning to Privy's expected version sidesteps any subtle ABI/type drift in the connector.
+**Reason:** `@privy-io/wagmi`'s exact-version peer pin is unusually strict; matching it is the cleanest path.
+**Impact:** Two viem versions co-exist in the monorepo (root tools = 2.48.4, web = 2.47.12). pnpm workspace isolation handles this — neither side imports the other. When Privy/wagmi loosens their peer, we'll consolidate.
+**Decision:** Acceptable for v1.
+
+---
+
+## [2026-04-27 F7] Privy + wagmi providers consume QueryClient OUTSIDE wagmi — not the standalone-wagmi order
+
+**Expected (mental model from wagmi v2 stand-alone usage):** `WagmiProvider → QueryClientProvider`
+**Actual (per @privy-io/wagmi 4.0.6 README):** `PrivyProvider → QueryClientProvider → WagmiProvider`. Privy puts QueryClient outside wagmi.
+**Reason:** Privy's wagmi adapter wraps the upstream WagmiProvider in custom connector logic; the QueryClient needs to span both Privy queries and wagmi queries.
+**Impact:** Provider order in `web/app/(dashboard)/providers.tsx` follows Privy's documented convention. Tested working — wagmi hooks return data, Privy hooks return data, they share the same QueryClient cache.
+
+---
+
 ## [2026-04-26 F5-followup] Empty-winning-side `freezePool` stuck-state — strict auto-Invalid fix in MarketImpl v5
 
 **Expected (per PRD §5.3 + §6.1):** A market with zero pool on the resolved-winning side is a degenerate but legitimate state — losers should be able to recover their stakes via the standard Invalid path.

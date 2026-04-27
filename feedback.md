@@ -591,3 +591,152 @@ contract author wants `require(encryptedThing)`.
 DX rating, this specific issue: 4/10 — the workaround is to write a known
 limitation. The thing the developer wants to write doesn't compile in a way
 that maps to their mental model.
+
+---
+
+## F7 — Safe UI Transaction Service indexer doesn't surface our Safe on Arb Sepolia
+
+Caught during F7 Faucet funding. `app.safe.global` loads the Safe shell page but
+the Transaction Service indexer never returns our Safe's data — the "Queue" and
+"History" tabs stay empty even for txs that landed on-chain. This isn't a
+signing failure or a contract issue: the Safe v1.4.1 deployment at
+`0x042a49628f8A107C476B01bE8edEbB38110FA332` is on-chain, owns 8 of our
+contracts, and execTransaction txs land normally — the UI just can't see them.
+
+We hit this trying to do the simplest possible op (the F7 multisig-mediated
+TestUSDC.mint(faucet, 10M)) and immediately gave up on the UI as the operator
+path.
+
+### Working alternative: scripts as the source of truth
+
+Since F4.5 we've been Safe-cosigning multisig ops via TS scripts using
+`@safe-global/protocol-kit`'s `Safe.init` → `createTransaction` →
+`signTransaction` (×N signers) → `executeTransaction` flow. The SDK handles
+the EIP-712 SafeTx hashing and signature concatenation internally, so the
+script stays terse:
+
+```typescript
+const sdk1 = await Safe.init({provider, signer: PK1, safeAddress});
+let tx = await sdk1.createTransaction({transactions: [{to, value: "0", data}]});
+tx = await sdk1.signTransaction(tx);
+const sdk2 = await Safe.init({provider, signer: PK2, safeAddress});
+tx = await sdk2.signTransaction(tx);
+const exec = await sdk1.executeTransaction(tx);
+```
+
+This pattern now lives in:
+
+- `tools/deploy-multisig.ts` (Safe deployment + initial ownership transfer)
+- `tools/deploy-f45.ts` (MarketImpl v3 swap)
+- `tools/deploy-f5-followup.ts` (MarketImpl v5 swap)
+- `tools/deploy-faucet.ts` (Faucet ownership transfer)
+- `tools/multisig-mint-faucet.ts` (this F7 mint, ~50 lines)
+
+DX is solid. The SDK is well-typed, the API is small, and the script makes
+multisig ops auditable + repeatable in CI. We've reached for it for every
+multisig op in this project; the UI hasn't successfully completed a single
+one for us on Arb Sepolia.
+
+### Suggested fixes upstream
+
+1. **Document Arb Sepolia indexer status** — Safe's official infra docs don't
+   mention which testnets have a working Transaction Service. A "Supported
+   Networks" table on the docs site listing `[mainnet, sepolia, arb-sep, ...]`
+   with current indexer health (▮▮▮▮▯) would have saved us 30 min.
+2. **Surface a "no indexer" notice in the UI** — if Transaction Service can't
+   resolve the Safe, render "Indexer unavailable for this network — use the SDK
+   or a script. [Docs link]" instead of an empty Queue. Currently the UI looks
+   broken; it's actually a known indexer gap.
+3. **Ship a `safe-cli`-equivalent in @safe-global/protocol-kit** — we
+   re-implement the same `safeExecAs2of3` helper across every deploy script.
+   A first-class `Safe.execTransaction({signers: [pk1, pk2], to, data})` that
+   bundles the multi-signer flow into one call would remove the boilerplate.
+
+---
+
+## F7 — Privy + wagmi + viem + @tanstack/react-query integration
+
+The full client-stack install for F7's dashboard. Versions at install:
+
+| Package                 | Version   | Notes                                                         |
+| ----------------------- | --------- | ------------------------------------------------------------- |
+| `@privy-io/react-auth`  | `3.22.2`  | peer `react: ^18 \|\| ^19` ✓                                  |
+| `@privy-io/wagmi`       | `4.0.6`   | peer `viem: 2.47.12` (exact pin), `wagmi: >=2`                |
+| `wagmi`                 | `3.6.5`   | peer `viem: 2.x`, `@tanstack/react-query: >=5`, `react: >=18` |
+| `viem`                  | `2.47.12` | matched to Privy/wagmi exact-peer                             |
+| `@tanstack/react-query` | `5.100.5` |                                                               |
+| `lucide-react`          | `1.11.0`  | sidebar/topbar icons                                          |
+| `@wagmi/cli` (dev)      | `2.10.0`  | ABI codegen from Foundry artifacts                            |
+
+### What worked
+
+- The `@privy-io/wagmi` README's provider snippet is verbatim copy-pasteable
+  and correct. `PrivyProvider → QueryClientProvider → WagmiProvider` is
+  documented and shipped working on first try.
+- `createConfig` re-export from `@privy-io/wagmi` (instead of upstream wagmi's)
+  is a small but smart abstraction — it makes the connector wiring invisible
+  to the consumer. We didn't have to think about it.
+- `embeddedWallets.ethereum.createOnLogin: 'users-without-wallets'` does
+  exactly what it says. Email login → embedded wallet auto-provisioned →
+  immediate wagmi access. Zero extra glue. Best embedded-wallet UX we've used.
+- `appearance.theme: 'light' | 'dark' | HexColor` accepts our `useTheme()`
+  output directly. No transform layer needed.
+- `@wagmi/cli` Foundry plugin generates clean `*Abi` + `*Address` exports from
+  `contracts/out/*.json`. Single `pnpm generate:contracts` command, types flow
+  through to every wagmi hook. Codegen is unambiguous about which contracts
+  it indexed (one terse line per resolved file).
+
+### Friction we accepted
+
+- **Exact-version peer pin on viem (`@privy-io/wagmi` ⇒ `viem: 2.47.12`).**
+  Higher minor of viem will just warn at install time (not block), but pinning
+  exactly to Privy's expected version sidesteps subtle ABI/type drift in their
+  connector. Privy could probably loosen this to `^2.47.0` without harm.
+- **`useChainId()` type narrowing.** Once wagmi knows the configured chain set
+  is `[arbitrumSepolia]`, `useChainId()` returns the literal `421614` — a
+  comparison to any other chainId is unreachable per type. To detect a wallet
+  on a non-config chain you need `useAccount().chainId` (typed `number |
+undefined`). The docs don't surface this distinction prominently. Filed in
+  BUG_LOG.
+- **React 19 `react-hooks/set-state-in-effect` rule fights wagmi result-effect
+  patterns.** The natural pattern of "on tx confirm, fire UI feedback" via
+  `useEffect(..., [receipt.isSuccess])` calling `setSomething(true)` is now a
+  lint error. Defer via `setTimeout(..., 0)` or `useSyncExternalStore`. Worth
+  documenting in wagmi's "common patterns" docs because it's going to bite
+  every wagmi user moving to React 19.
+- **Privy's modal palette is captured at provider mount.** Our theme toggle
+  re-renders the PrivyProvider with a new `appearance.theme` prop, which
+  works _for the next-opened modal_ — but if the modal is already open at
+  the moment of toggle, it doesn't re-style live. Acceptable; users don't
+  typically toggle theme mid-modal. A reactive theme prop would be a polish
+  win for Privy.
+
+### Suggested fixes upstream (Privy)
+
+1. **Loosen the viem peer to `^2.47.0`** — exact pin causes monorepo
+   version-skew headaches when other parts of the stack ship a newer 2.x.
+2. **Document the `'users-without-wallets'` flow more loudly.** It's the
+   killer feature of Privy for hackathon UX (login = wallet, no seed-phrase
+   modal), but the option is buried in the embedded-wallets type. A "Quickstart
+   for hackathons" page that leads with this would convert.
+3. **Live appearance prop.** Make Privy's open modal observe its `appearance`
+   prop reactively so theme toggles take effect immediately.
+4. **First-class `useEmbeddedWallet()` getter.** We're inferring "is this an
+   embedded wallet?" from `wallets[0]?.walletClientType === "privy"`, which
+   works but feels like internal API. A typed `useEmbeddedWalletStatus()`
+   hook would be clearer.
+
+### Suggested fixes upstream (wagmi)
+
+1. **Document the `useChainId()` vs `useAccount().chainId` distinction.** A
+   "How do I detect wrong-network?" entry in the FAQ would save every wagmi
+   user 10 minutes of typecheck-error confusion.
+2. **`react-hooks/set-state-in-effect` collision pattern doc.** wagmi's
+   "useWaitForTransactionReceipt" page should include a React 19 note showing
+   the canonical "post-confirm feedback" pattern that doesn't cascade.
+
+DX overall, F7 stack: 8.5/10. Privy is the highlight — embedded-wallet
+auto-provisioning is the right shape for hackathon judges. wagmi v3 + viem
+2.47 + Tanstack Query 5 is mature, fast (Turbopack build hit 9s cold), and
+the type system surfaces real bugs (the `useChainId()` issue caught in
+typecheck, not at runtime).

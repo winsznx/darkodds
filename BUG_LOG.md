@@ -5,6 +5,40 @@ Format per PRD §0.3.
 
 ---
 
+## [2026-04-27 F7] wagmi `useChainId()` returns config-narrowed type — can't detect mismatch
+
+**Repro:** typecheck a `useChainId() !== chain.id` comparison where the wagmi
+config declares `chains: [arbitrumSepolia]`. TypeScript flags the comparison
+because `useChainId()`'s return type is narrowed to the literal `421614`
+(union of `chains[number]['id']` from the typed `Register` config), so any
+value other than `421614` is impossible per types.
+**Root cause:** `useChainId()` is intentionally typed against the wagmi
+config's chains, not the connected wallet's chain. To detect a _wallet_ on a
+non-config chain, use `useAccount().chainId` (typed `number | undefined`)
+instead. The wagmi docs don't make this distinction loud, but the type
+signatures are clear.
+**Fix:** `components/topbar/NetworkChip.tsx` and `app/(dashboard)/Shell.tsx`
+both switched from `useChainId()` to `useAccount().chainId` for mismatch
+detection. The check additionally gates on `isConnected` so we don't flash
+the mismatch banner before the wallet has connected at all.
+
+---
+
+## [2026-04-27 F7] React 19 lint blocks setState-in-effect cascade in faucet success animation
+
+**Repro:** write `useEffect(() => { if (claimReceipt.isSuccess) setShowSuccess(true); ... })`
+under React 19's `react-hooks/set-state-in-effect` ESLint rule.
+**Root cause:** React 19's hook lint rule forbids synchronous `setState` calls
+inside `useEffect` bodies — they cause cascading re-renders. Even ostensibly-
+correct patterns like "schedule a celebration on tx confirm" trip the rule.
+**Fix:** `components/faucet/FaucetModal.tsx` replaced direct `setShowSuccess(true)`
+with `setTimeout(() => setCelebrated(hash), 0)` so the state update runs in a
+fresh microtask, not the effect body. Track the celebrated tx hash directly so
+the celebration fires exactly once per successful claim. The auto-dismiss
+`setTimeout(..., 3000)` was already deferred and fine.
+
+---
+
 ## [2026-04-25 P0] healthcheck — decrypt fails because handle was never committed on-chain (PRD misspec, not a Nox infra failure)
 
 **Repro:**

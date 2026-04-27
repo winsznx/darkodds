@@ -16,7 +16,8 @@
     "NoxProtocol": "0xd464B198f06756a1d00be223634b85E0a731c229",
     "MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
     "MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
-    "MarketImplementation_v5": "0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779"
+    "MarketImplementation_v5": "0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779",
+    "Faucet": "0xcb8e251cd6eb0bb797c0721cab84f41c8cd359a5"
   },
   "deployer": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
   "deployedAt": 1777129921,
@@ -33,7 +34,8 @@
     "Market_2": "https://sepolia.arbiscan.io/address/0xec3b47c7eaaf601a32cdfde37aa078ebbc1c3297",
     "MarketImplementation_v3": "https://sepolia.arbiscan.io/address/0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
     "MarketImplementation_v4": "https://sepolia.arbiscan.io/address/0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
-    "MarketImplementation_v5": "https://sepolia.arbiscan.io/address/0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779"
+    "MarketImplementation_v5": "https://sepolia.arbiscan.io/address/0xf3aa651f5e5c8ff51472ae2beab6ec1ed0d27779",
+    "Faucet": "https://sepolia.arbiscan.io/address/0xcb8e251cd6eb0bb797c0721cab84f41c8cd359a5"
   },
   "notes": {
     "f2_legacy_ConfidentialUSDC": "0xf9f3a9f5f3a2f4138fb680d5cdfa635fd4312372",
@@ -49,7 +51,9 @@
     "f5_legacy_MarketImplementation_v3": "0x73167b1f0e07d3d3ce24b05a90ef8b0d991cc7ea",
     "f5_marketimpl_swap_tx": "0x03461829bf19ebe1f137b1d53044c22addba9cdbdb9156d28bb69cfc893d98ff",
     "f5fu_legacy_MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
-    "f5fu_marketimpl_swap_tx": "0xfb62be64fb3a7a4b0658ff3140fc3e1711e58c51e572a19d07e81b27872830b2"
+    "f5fu_marketimpl_swap_tx": "0xfb62be64fb3a7a4b0658ff3140fc3e1711e58c51e572a19d07e81b27872830b2",
+    "f7_faucet_ownership_transfer_tx": "0x0d9ad3636e6ebe2780557bdef5ee77a39df76832141210c20cb795f7c54ef52e",
+    "f7_faucet_funding_tx": "0x10cdc07d7e1137f62eb666afcda11599d8e680c2044d0f05715ee43b8313c18a"
   },
   "safe": {
     "address": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
@@ -109,6 +113,12 @@
         "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
         "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
         "transferTx": "0x5271a9c6e86747feb2716bdac462b25e82295203c58f144bb13f392e92c1c092"
+      },
+      "Faucet": {
+        "address": "0xcb8e251cd6eb0bb797c0721cab84f41c8cd359a5",
+        "previousOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5",
+        "currentOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332",
+        "transferTx": "0x0d9ad3636e6ebe2780557bdef5ee77a39df76832141210c20cb795f7c54ef52e"
       }
     }
   }

@@ -853,3 +853,47 @@ comments and enforced by `lib/polymarket/types.ts` not exporting the raw
 DX rating, this specific issue: 5/10. Once you know about the parse, the
 rest of the API is clean and well-shaped. Until you know, it's a real
 "why is `outcomePrices.length` 16?" stumble.
+
+---
+
+## Phase F10 — ChainGPT integration
+
+### Smart Contract Generator — market creation
+
+**What we built:** `/create` page + `/api/chaingpt/generate-market` API route.
+
+The user types a natural language market description (e.g. "BTC closes above $150k by Dec 31 2026, Chainlink resolved"). The server calls ChainGPT's Smart Contract Generator with a structured extraction prompt that returns JSON market params — `question`, `resolutionCriteria`, `oracleType`, `expiryTs`, `protocolFeeBps`. The client pre-fills an editable form with the AI output. The user reviews, edits, and clicks DEPLOY → `MarketRegistry.createMarket(...)` via wagmi.
+
+**Package:** `@chaingpt/smartcontractgenerator` (REST API wrapper, `model: "smart_contract_generator"`).
+
+**Why the generator, not the LLM?** The Smart Contract Generator endpoint was used for structured extraction rather than Solidity generation because DarkOdds already has its contracts deployed. The prompt instructs ChainGPT to output only JSON. This is a creative use of the endpoint — chaining "contract generation" intent as a structured NLP parser. It works because the model is Solidity-context-aware and produces precise types/values (Unix timestamps, bps integers) rather than prose.
+
+**DX notes:**
+
+1. **`response.data.bot` typing:** The SDK types `bot` as a property of the response data, but the TypeScript types are `any`-ish at the top level. Required a runtime `(response.data as {bot?: string}).bot` cast. A tighter generic would help.
+
+2. **No streaming in generate use case:** For the extraction use case (JSON output, ~1s), streaming would add complexity for no user-facing benefit. Used `createChatMessage` (non-streaming) which is clean.
+
+3. **JSON parsing reliability:** ChainGPT sometimes wraps the JSON in a markdown fence even when instructed not to. The API route strips fences and extracts the first `{...}` block as a safety measure. This shouldn't be necessary if the prompt is followed.
+
+4. **Credit model:** 1 credit per request. At hackathon scale this is negligible. For production: cache ChainGPT output per (prompt, date) hash to avoid re-charging for repeated identical prompts.
+
+### Smart Contract Auditor — CI integration
+
+**What we built:** `tools/chaingpt-audit.ts` + `.github/workflows/chaingpt-audit.yml`.
+
+On every push to `main` that touches `contracts/src/*.sol`, the workflow runs `chaingpt-audit.ts`, which audits all 8 contracts via the ChainGPT Auditor API and saves a consolidated report to `contracts/audits/chaingpt-{date}.md`. The commit action auto-commits the report to the branch.
+
+**Package:** `@chaingpt/smartcontractauditor` (same REST endpoint, `model: "smart_contract_auditor"`).
+
+**Implementation note:** The existing `tools/audit-f4.ts` and `tools/audit-f45.ts` scripts used the raw `fetch` API directly (those were written before the SDK was added to the project). `chaingpt-audit.ts` also uses raw `fetch` for consistency with those scripts and to avoid bundling the SDK in a CLI context that doesn't need the wrapper.
+
+**DX notes on the Auditor:**
+
+1. **Finding severity calibration:** The auditor reliably surfaces admin centralization and missing event-emission findings at HIGH/MEDIUM. It doesn't catch iExec-Nox-specific patterns (cross-contract ACL wiring, `fromExternal` commit semantics) — those require domain-specific review.
+
+2. **Streaming response:** The auditor returns a streaming SSE-like body. The raw reader loop handles this correctly; the SDK wraps this transparently.
+
+3. **CI latency:** Each contract audit takes 8–15s. 8 contracts = ~90s total. Acceptable for a push-triggered workflow. A cache-by-file-hash skip (checking if the source hasn't changed since the last report) would reduce this to near-zero for PRs that only touch non-contract files.
+
+**What judges will see:** Every push that modifies a contract triggers a fresh audit report committed to the repo. The F4 + F4.5 reports are already in `contracts/audits/`. The F10 CI run will generate `chaingpt-{date}.md` on the first push after this commit.

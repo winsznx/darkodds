@@ -1,0 +1,241 @@
+/* ============================================================
+   /create — ChainGPT market creation page
+   ============================================================ */
+
+.create-body {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── prompt panel ─────────────────────────────────────────── */
+.create-prompt-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  padding: 32px;
+}
+
+.create-prompt-panel h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 16px;
+}
+
+.create-prompt-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--hairline-strong);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.create-prompt-textarea:focus {
+  border-color: var(--fg);
+}
+
+.create-prompt-textarea::placeholder {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.create-generate-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.create-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.create-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.create-cta:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.create-cta--secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--hairline-strong);
+}
+
+.create-cta--secondary:not(:disabled):hover {
+  background: var(--hairline);
+  opacity: 1;
+}
+
+.create-generating {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-error {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--redacted-red);
+  margin-top: 8px;
+}
+
+/* ── params form ─────────────────────────────────────────── */
+.create-params-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.create-params-panel h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-field label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.create-input,
+.create-textarea,
+.create-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--hairline-strong);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.create-textarea {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.create-input:focus,
+.create-textarea:focus,
+.create-select:focus {
+  border-color: var(--fg);
+}
+
+.create-select option {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.create-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .create-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── deploy section ─────────────────────────────────────── */
+.create-deploy-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 20px;
+}
+
+.create-deploy-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+}
+
+.create-deploy-note strong {
+  color: var(--fg);
+}
+
+.create-tx-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--fg-muted);
+}
+
+.create-tx-status .tx-hash {
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.create-success-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.create-success-panel p {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--fg);
+  margin: 0;
+}

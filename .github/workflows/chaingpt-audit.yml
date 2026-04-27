@@ -1,0 +1,41 @@
+name: ChainGPT Contract Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/src/**/*.sol"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    name: Audit Solidity contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Run ChainGPT audit
+        env:
+          CHAINGPT_API_KEY: ${{ secrets.CHAINGPT_API_KEY }}
+        run: tsx tools/chaingpt-audit.ts
+
+      - name: Commit audit report
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "audit(chaingpt): contract audit report"
+          file_pattern: "contracts/audits/chaingpt-*.md"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"

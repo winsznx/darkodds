@@ -6,6 +6,16 @@ Format per §0.2.
 
 ---
 
+## [2026-04-27 F10] SmartContractGenerator used as NLP extractor, not Solidity generator
+
+**Expected (per PRD §8.1):** `/api/chaingpt/generate-market` proxies to ChainGPT Smart Contract Generator; ChainGPT "returns structured market params + (optionally) generated condition Solidity if needed".
+**Actual:** The route uses the Smart Contract Generator endpoint (`model: "smart_contract_generator"`) with a prompt that instructs it to extract JSON market params only — no Solidity is generated. DarkOdds already has deployed contracts; only `question`, `resolutionCriteria`, `oracleType`, `expiryTs`, `protocolFeeBps` are needed.
+**Reason:** Generating duplicate Solidity for contracts that already exist on-chain adds no value. Using ChainGPT as a structured NLP extractor is more aligned with the actual UX goal (fast market creation from natural language).
+**Impact:** No downstream sections affected. `feedback.md §F10` documents the reasoning.
+**Decision:** Proceed — more useful than a literal reading of §8.1.
+
+---
+
 ## [2026-04-27 F9] BetPanel Open-market quote shows "—" until F12 (publicDecrypt deferred)
 
 **Expected (F9 spec):** BetPanel's "ESTIMATED PAYOUT" field and multiplier derive from the

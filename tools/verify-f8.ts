@@ -36,6 +36,12 @@ const GAMMA_BASE = "https://gamma-api.polymarket.com";
 const DEV_SERVER = "http://localhost:3000";
 
 const REGISTRY_ABI = parseAbi(["function nextMarketId() view returns (uint256)"]);
+const MARKET_CREATED_ABI = parseAbi([
+  "event MarketCreated(uint256 indexed id, address market, string question, uint256 expiryTs)",
+]);
+const BET_PLACED_ABI = parseAbi([
+  "event BetPlaced(address indexed user, uint8 side, bytes32 handle, uint256 indexed batchId)",
+]);
 
 const runStartedAt = new Date();
 const stamp = runStartedAt.toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -181,15 +187,59 @@ async function main(): Promise<void> {
     detail: `count=${polymarketUrls.length}`,
   });
 
-  // Disabled CTAs visibly present (not stripped)
-  const placeBetPresent = pageHtml.includes("PLACE BET");
-  checks.push({name: "PLACE BET disabled CTA present", pass: placeBetPresent, detail: ""});
+  // DarkOdds CTAs — F9 HALT 1 enables the card link to /markets/[id]; the
+  // disabled tooltip pattern remains on the Polymarket card's MIRROR CTA.
+  const viewBetCtaPresent = pageHtml.includes("VIEW &amp; BET") || pageHtml.includes("VIEW & BET");
+  checks.push({name: "VIEW & BET CTA on DarkOdds card (F9 HALT 1)", pass: viewBetCtaPresent, detail: ""});
+  const detailLinks = (pageHtml.match(/href="\/markets\/\d+"/g) ?? []).length;
+  checks.push({
+    name: "DarkOdds cards link to /markets/[id]",
+    pass: detailLinks > 0,
+    detail: `count=${detailLinks}`,
+  });
   const mirrorPresent = pageHtml.includes("MIRROR ON DARKODDS");
   checks.push({name: "MIRROR ON DARKODDS disabled CTA present", pass: mirrorPresent, detail: ""});
-  const f9TipPresent = pageHtml.includes("Phase F9");
-  checks.push({name: "F9 tooltip on PLACE BET", pass: f9TipPresent, detail: ""});
   const f11TipPresent = pageHtml.includes("Phase F11");
   checks.push({name: "F11 tooltip on MIRROR ON DARKODDS", pass: f11TipPresent, detail: ""});
+
+  // ─── F9 HALT 1.5: BetPlaced data path ──────────────────────────────────
+  // The /markets/[id] EventLog component fetches client-side, so the initial
+  // HTML shows a "LOADING EVENTS…" scaffold. We verify the data path by
+  // running the same chain query the component runs, against a known market
+  // with a real bet (smoke-f5 lifecycle A → market #12 → tx 0x0071b846).
+  const KNOWN_BET_TX = "0x0071b846a052aecad462cb09456905c5c4ee1b21236c74710913fff253763518";
+  let betPlacedFound = false;
+  let betPlacedDetail = "";
+  try {
+    const created = await pub.getLogs({
+      address: dep.contracts.MarketRegistry,
+      event: MARKET_CREATED_ABI[0],
+      args: {id: BigInt(12)},
+      fromBlock: BigInt(0),
+      toBlock: "latest",
+    });
+    const birthBlock = created[0]?.blockNumber ?? BigInt(0);
+    const market12 = (created[0]?.args as {market?: Address})?.market;
+    if (market12) {
+      const bets = await pub.getLogs({
+        address: market12,
+        event: BET_PLACED_ABI[0],
+        fromBlock: birthBlock,
+        toBlock: "latest",
+      });
+      betPlacedFound = bets.some((b) => b.transactionHash.toLowerCase() === KNOWN_BET_TX.toLowerCase());
+      betPlacedDetail = `${bets.length} BetPlaced on market#12 from block ${birthBlock}`;
+    } else {
+      betPlacedDetail = "MarketCreated lookup empty";
+    }
+  } catch (e) {
+    betPlacedDetail = e instanceof Error ? e.message : String(e);
+  }
+  checks.push({
+    name: "BetPlaced query reaches known market#12 bet (F9 HALT 1.5)",
+    pass: betPlacedFound,
+    detail: betPlacedDetail,
+  });
 
   // Display-only stance: no Polymarket trading SDK pulled into the web bundle.
   // This is a static guarantee — we never installed @polymarket/clob-client.

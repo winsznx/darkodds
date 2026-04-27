@@ -14,11 +14,12 @@
  * page's server-component fetch.
  */
 
-import {createPublicClient, http, type Address} from "viem";
+import {createPublicClient, http, type Address, type Hex} from "viem";
 import {arbitrumSepolia} from "viem/chains";
 
 import {marketAbi, marketRegistryAbi} from "@/lib/contracts/generated";
 import {addresses} from "@/lib/contracts/addresses";
+import {tryPublicDecryptUint256} from "@/lib/nox/client";
 
 import {
   type DarkOddsCardOutcome,
@@ -28,6 +29,8 @@ import {
   DarkOddsState,
   type DarkOddsStateValue,
 } from "./types";
+
+const ZERO_BYTES32: Hex = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 const RPC_URL = process.env.NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL ?? "https://sepolia-rollup.arbitrum.io/rpc";
 
@@ -130,8 +133,10 @@ export async function getDarkOddsMarkets(): Promise<{
 
   if (resolvedAddresses.length === 0) return {markets: [], errors};
 
-  // Wave 2: per-market batched reads. 6 calls per market: state, question,
-  // outcome, expiryTs, yesPoolFrozen, noPoolFrozen.
+  // Wave 2: per-market batched reads. 8 calls per market: state, question,
+  // outcome, expiryTs, yesPoolFrozen, noPoolFrozen, plus the two
+  // publicly-decryptable pool handles for live odds on Open-state markets
+  // (F12-HOOK resolved by F9 — Nox SDK now in web/, publicDecrypt available).
   const calls = resolvedAddresses.flatMap(({address}) => [
     {address, abi: marketAbi, functionName: "state" as const},
     {address, abi: marketAbi, functionName: "question" as const},
@@ -139,7 +144,10 @@ export async function getDarkOddsMarkets(): Promise<{
     {address, abi: marketAbi, functionName: "expiryTs" as const},
     {address, abi: marketAbi, functionName: "yesPoolFrozen" as const},
     {address, abi: marketAbi, functionName: "noPoolFrozen" as const},
+    {address, abi: marketAbi, functionName: "yesPoolPublishedHandle" as const},
+    {address, abi: marketAbi, functionName: "noPoolPublishedHandle" as const},
   ]);
+  const STRIDE = 8;
 
   let stateResults: Array<{status: "success"; result: unknown} | {status: "failure"; error: Error}>;
   try {
@@ -153,15 +161,35 @@ export async function getDarkOddsMarkets(): Promise<{
   }
 
   const nowSec = BigInt(Math.floor(Date.now() / 1000));
-  const markets: DarkOddsMarket[] = [];
+
+  // Pre-computed market metadata, with `pendingOddsHandles` for any market
+  // whose frozen pools are 0 but published handles are non-zero — those
+  // need a publicDecrypt round-trip before we surface plaintext odds.
+  type MarketDraft = {
+    id: bigint;
+    address: Address;
+    question: string;
+    state: DarkOddsStateValue;
+    outcome: DarkOddsOutcomeValue;
+    expiryTs: bigint;
+    yesPoolFrozen: bigint;
+    noPoolFrozen: bigint;
+    yesPoolHandle: Hex;
+    noPoolHandle: Hex;
+    isOpen: boolean;
+    isResolved: boolean;
+  };
+  const drafts: MarketDraft[] = [];
   resolvedAddresses.forEach(({id, address}, i) => {
-    const base = i * 6;
+    const base = i * STRIDE;
     const stateRes = stateResults[base];
     const questionRes = stateResults[base + 1];
     const outcomeRes = stateResults[base + 2];
     const expiryRes = stateResults[base + 3];
     const yesPoolRes = stateResults[base + 4];
     const noPoolRes = stateResults[base + 5];
+    const yesHandleRes = stateResults[base + 6];
+    const noHandleRes = stateResults[base + 7];
 
     if (
       stateRes.status !== "success" ||
@@ -181,6 +209,12 @@ export async function getDarkOddsMarkets(): Promise<{
     const expiryTs = expiryRes.result as bigint;
     const yesPoolFrozen = yesPoolRes.result as bigint;
     const noPoolFrozen = noPoolRes.result as bigint;
+    const yesPoolHandle = (
+      yesHandleRes?.status === "success" ? (yesHandleRes.result as Hex) : ZERO_BYTES32
+    ) as Hex;
+    const noPoolHandle = (
+      noHandleRes?.status === "success" ? (noHandleRes.result as Hex) : ZERO_BYTES32
+    ) as Hex;
 
     const isOpen = state === DarkOddsState.Open && nowSec < expiryTs;
     const isResolved =
@@ -188,20 +222,58 @@ export async function getDarkOddsMarkets(): Promise<{
       state === DarkOddsState.ClaimWindow ||
       state === DarkOddsState.Invalid;
 
-    markets.push({
-      id: id as DarkOddsMarketId,
+    drafts.push({
+      id,
       address,
       question,
       state,
-      outcome: isResolved ? outcome : null,
+      outcome,
       expiryTs,
       yesPoolFrozen,
       noPoolFrozen,
-      outcomes: deriveOutcomes(yesPoolFrozen, noPoolFrozen),
+      yesPoolHandle,
+      noPoolHandle,
       isOpen,
       isResolved,
     });
   });
+
+  // F12-HOOK resolved: for Open-state markets where frozen pools are zero
+  // but the published pool handles are initialized, fetch plaintext via
+  // Nox `publicDecrypt`. Best-effort — null on any failure (gateway 5xx,
+  // timeout, malformed handle) → outcome.probability stays null →
+  // card renders "—".
+  const publicDecryptJobs = drafts.map(async (d) => {
+    if (d.yesPoolFrozen + d.noPoolFrozen > BigInt(0)) {
+      return deriveOutcomes(d.yesPoolFrozen, d.noPoolFrozen);
+    }
+    if (d.yesPoolHandle === ZERO_BYTES32 || d.noPoolHandle === ZERO_BYTES32) {
+      return deriveOutcomes(BigInt(0), BigInt(0));
+    }
+    const [yesPlain, noPlain] = await Promise.all([
+      tryPublicDecryptUint256(d.yesPoolHandle),
+      tryPublicDecryptUint256(d.noPoolHandle),
+    ]);
+    if (yesPlain === null || noPlain === null) {
+      return deriveOutcomes(BigInt(0), BigInt(0));
+    }
+    return deriveOutcomes(yesPlain, noPlain);
+  });
+  const outcomesByDraft = await Promise.all(publicDecryptJobs);
+
+  const markets: DarkOddsMarket[] = drafts.map((d, i) => ({
+    id: d.id as DarkOddsMarketId,
+    address: d.address,
+    question: d.question,
+    state: d.state,
+    outcome: d.isResolved ? d.outcome : null,
+    expiryTs: d.expiryTs,
+    yesPoolFrozen: d.yesPoolFrozen,
+    noPoolFrozen: d.noPoolFrozen,
+    outcomes: outcomesByDraft[i]!,
+    isOpen: d.isOpen,
+    isResolved: d.isResolved,
+  }));
 
   return {markets, errors};
 }

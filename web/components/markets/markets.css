@@ -200,12 +200,19 @@
   font-weight: 500;
   color: var(--fg);
 }
+/* Leading outcome — accent ONLY. Never black-fill the row: the redaction bar
+   is reserved for pool size (the brand element). Outcome rows always show
+   plaintext label + plaintext percentage. */
 .mc-outcome--top {
-  background: var(--fg);
+  border-left: 3px solid var(--redacted-red);
+  background: var(--bg);
 }
 .mc-outcome--top .lbl,
 .mc-outcome--top .pct {
-  color: var(--bg);
+  color: var(--fg);
+}
+.mc-outcome--top .pct {
+  font-weight: 500;
 }
 
 /* footer row — pool/volume + CTA */

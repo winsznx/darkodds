@@ -1,0 +1,536 @@
+/* ============================================================
+   /markets/[id] — single-market detail page styles.
+   ============================================================ */
+
+.md-layout {
+  display: flex;
+  gap: 32px;
+  align-items: stretch;
+}
+.md-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.md-aside {
+  flex: 0 0 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 88px;
+  align-self: flex-start;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* ─── Header ───────────────────────────────────────────────── */
+.md-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.md-header .md-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-header .md-meta-row .id {
+  color: var(--fg);
+}
+.md-header .md-question {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.md-header .md-end {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.md-state-badge {
+  display: inline-block;
+  font-family: var(--font-stamp);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1.5px solid currentColor;
+}
+.md-state-badge--open {
+  color: var(--declassified-amber);
+}
+.md-state-badge--resolved {
+  color: var(--fg);
+}
+.md-state-badge--invalid {
+  color: var(--redacted-red);
+}
+
+/* ─── Outcomes panel ───────────────────────────────────────── */
+.md-outcomes-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  padding: 24px;
+}
+.md-outcomes-panel .md-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 16px;
+}
+.md-outcomes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.md-outcome-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Leading outcome — accent only, no black-fill. The redaction bar is reserved
+   for pool size; outcome rows always show plaintext label + percentage. */
+.md-outcome-row--top {
+  border-left: 3px solid var(--redacted-red);
+  background: var(--bg);
+}
+.md-outcome-row--top .lbl,
+.md-outcome-row--top .pct {
+  color: var(--fg);
+}
+.md-outcome-row--top .pct {
+  font-weight: 500;
+}
+.md-outcome-row .lbl {
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.md-outcome-row .pct {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.md-outcomes-pool-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.md-outcomes-pool-row .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-outcomes-pool-row .v.redact-bar {
+  display: inline-block;
+  background: #000;
+  height: 16px;
+  width: 96px;
+  vertical-align: middle;
+}
+
+/* ─── Meta block ───────────────────────────────────────────── */
+.md-meta-block {
+  border: 1px solid var(--hairline);
+  background: var(--bg-soft);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.md-meta-block .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.md-meta-block .row .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-meta-block .row .v {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.md-meta-block .row .v a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--hairline-strong);
+}
+.md-meta-block .row .v a:hover {
+  border-bottom-style: solid;
+}
+
+/* ─── User positions ───────────────────────────────────────── */
+.md-positions {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  padding: 24px;
+}
+.md-positions .md-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.md-position-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.md-position-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.md-position-row .lbl {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-position-row .v {
+  font-size: 18px;
+  color: var(--fg);
+}
+.md-position-row .rbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.md-position-row .rbar .bar {
+  display: inline-block;
+  background: #000;
+  height: 16px;
+  width: 96px;
+}
+.md-position-row .rbar .retry {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  color: var(--fg);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.md-position-row .rbar .retry:hover {
+  background: var(--hairline);
+}
+.md-position-row .rbar .pulse {
+  display: inline-block;
+  width: 96px;
+  height: 16px;
+  background: linear-gradient(90deg, #000 0%, #333 50%, #000 100%);
+  background-size: 200% 100%;
+  animation: md-redact-pulse 1.4s ease-in-out infinite;
+}
+@keyframes md-redact-pulse {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: -200% 0;
+  }
+}
+
+.md-empty {
+  border: 1px dashed var(--hairline-strong);
+  padding: 32px 16px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+.md-empty .stamp {
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+/* ─── Resume banner (sessionStorage mid-flow recovery) ─────── */
+.md-resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--declassified-amber);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--declassified-amber);
+  margin-bottom: 16px;
+}
+.md-resume-banner .actions {
+  display: flex;
+  gap: 8px;
+}
+.md-resume-banner button {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--declassified-amber);
+  cursor: pointer;
+}
+.md-resume-banner button.primary {
+  background: var(--declassified-amber);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* ─── Bet panel (right column) ─────────────────────────────── */
+.md-bet-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.md-bet-panel .md-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0;
+}
+.md-bet-panel .md-side-toggle {
+  display: flex;
+  border: 1px solid var(--hairline-strong);
+}
+.md-bet-panel .md-side-toggle button {
+  flex: 1 1 0;
+  padding: 14px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.md-bet-panel .md-side-toggle button[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+}
+.md-bet-panel .md-side-toggle button + button {
+  border-left: 1px solid var(--hairline-strong);
+}
+
+.md-bet-panel .md-amount {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+}
+.md-bet-panel .md-amount input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  padding: 12px 14px;
+  outline: none;
+}
+.md-bet-panel .md-amount .unit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  border-left: 1px solid var(--hairline-strong);
+}
+.md-bet-panel .md-quote-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+.md-bet-panel .md-quote-row .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-bet-panel .md-quote-row .v {
+  color: var(--fg);
+}
+.md-bet-panel .md-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 1px solid var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+  cursor: pointer;
+  border-radius: 0;
+}
+.md-bet-panel .md-cta:hover:not(:disabled) {
+  background: var(--declassified-amber);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.md-bet-panel .md-cta:disabled {
+  background: transparent;
+  color: var(--fg-muted);
+  border-color: var(--hairline-strong);
+  cursor: not-allowed;
+}
+.md-bet-panel .md-locked {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+/* ─── Event log ────────────────────────────────────────────── */
+.md-eventlog {
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  padding: 16px 20px;
+}
+.md-eventlog .md-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 12px;
+}
+.md-eventlog .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-top: 1px solid var(--hairline);
+}
+.md-eventlog .row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.md-eventlog .row .addr {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.md-eventlog .row .side {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.md-eventlog .row .amt {
+  color: var(--fg);
+}
+.md-eventlog .row .amt .bar {
+  display: inline-block;
+  background: #000;
+  height: 12px;
+  width: 64px;
+  vertical-align: middle;
+}
+.md-eventlog .row .ts {
+  color: var(--fg-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Responsive ───────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .md-layout {
+    flex-direction: column;
+  }
+  .md-aside {
+    flex: 1 1 auto;
+    position: static;
+    max-height: none;
+  }
+}
+@media (max-width: 640px) {
+  .md-header .md-question {
+    font-size: 24px;
+  }
+  .md-aside {
+    margin-bottom: 16px;
+  }
+}

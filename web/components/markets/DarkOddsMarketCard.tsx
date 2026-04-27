@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {addressLink} from "@/lib/chains";
 
 import {DarkOddsState, type DarkOddsMarket} from "@/lib/darkodds/types";
@@ -75,9 +77,11 @@ export function DarkOddsMarketCard({market}: {market: DarkOddsMarket}): React.Re
           <span className="v redact-bar" aria-label="Pool size redacted by design" />
         </div>
         <div className="mc-cta-row">
-          <span className="mc-cta" data-disabled="true" aria-disabled>
-            PLACE BET →<span className="mc-tip">Coming in /markets/[id] — Phase F9</span>
-          </span>
+          {/* HALT 1 of F9: card CTA links to the new detail page. The full
+              bet modal (HALT 2) and chain wiring (HALT 3) land behind this. */}
+          <Link className="mc-cta" href={`/markets/${market.id.toString()}`}>
+            VIEW &amp; BET →
+          </Link>
           <a
             className="mc-cta"
             href={addressLink(market.address)}

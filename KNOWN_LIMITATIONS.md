@@ -338,6 +338,63 @@ local machine. Loss of the key means re-running deploy-f3 / deploy-f4 from
 scratch with a new wallet — recoverable but not free. Production would use
 hardware-backed signing or a managed signer (Defender Relay, etc.).
 
+## Some external wallets ignore dApp-supplied gas overrides on Arb Sepolia (F9)
+
+Confirmed reverting on **Zerion**, suspected on **Phantom**. The bet
+orchestrator (`web/lib/bet/place-bet.ts`) passes explicit
+`maxFeePerGas: baseFee × 5 + 0.01 gwei` and `maxPriorityFeePerGas: 0.01 gwei`
+on every tx submission via `walletClient.sendTransaction({...fees})` to
+work around viem's default fee estimator landing a few thousand wei below
+Arb Sepolia's actual current basefee at the network minimum (~0.02 gwei).
+
+The override works correctly with **Privy embedded wallets**, **MetaMask**,
+and **Rabby** — the wallet signs the tx with the dApp-provided
+`maxFeePerGas` value and the RPC accepts it.
+
+**Zerion and Phantom override the dApp values with their own internal
+estimator** (visible in error payloads as `version=6.14.0` from a bundled
+ethers.js). Their estimator uses ~1.1× basefee, which on Arb Sepolia
+produces a `maxFeePerGas` 6,000–10,000 wei below the basefee at submission
+time. The RPC rejects with:
+
+```
+max fee per gas less than block base fee:
+maxFeePerGas: 20004000 baseFee: 20010000
+```
+
+We've decoded the failing raw tx payloads and confirmed the wallet, not
+viem, is choosing the bad fee values. The classifier in
+`web/lib/bet/errors.ts` translates this to a "Wallet's fee estimate is
+stale — Arb Sepolia base fee ticked up. Click RETRY STEP to resubmit"
+message so the user has actionable feedback; a hard refresh + retry
+sometimes lands within the next basefee tick window.
+
+### Why we accept rather than fix on the dApp side
+
+There is no dApp-controlled API to force a wallet to use specific fee
+values once the wallet has decided to override. Some workarounds — sending
+a legacy (`gasPrice`-only) transaction, or bypassing the wallet's signing
+flow with `eth_signTransaction` + manual `eth_sendRawTransaction` — either
+sacrifice EIP-1559 economics or break the user-confirmation step that's
+the entire point of routing through the wallet.
+
+### What does work
+
+- **Switch to Privy embedded / MetaMask / Rabby** for the bet flow. All
+  three honor the dApp's gas overrides.
+- **In Zerion or Phantom**: click the gas-edit button in the tx popup and
+  manually bump the max fee to ~0.05 gwei. Submission then lands cleanly.
+  Documented in `feedback.md` as a wallet-vendor DX ask.
+
+### Production roadmap
+
+- File the bug upstream with Zerion + Phantom citing this exact reproduction
+  trace (raw tx payload + RPC error pair).
+- If/when the network minimum-basefee floor on Arb stabilizes (e.g.,
+  network upgrade to a higher minimum or a less twitchy auto-tune), the
+  problem becomes self-resolving since all estimators will land
+  comfortably above the minimum.
+
 ## TestUSDC is permitted; production USDC is not
 
 `TestUSDC.sol` includes `ERC20Permit` for one-signature wrap UX in the

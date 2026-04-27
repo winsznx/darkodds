@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect, useState} from "react";
 
 import {useAccount} from "wagmi";
 
@@ -12,6 +12,12 @@ import {Topbar} from "@/components/topbar/Topbar";
 export function Shell({children}: {children: React.ReactNode}): React.ReactElement {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faucetOpen, setFaucetOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (): void => setFaucetOpen(true);
+    window.addEventListener("darkodds:open-faucet", handler);
+    return () => window.removeEventListener("darkodds:open-faucet", handler);
+  }, []);
   const {chainId: onChain, isConnected} = useAccount();
   const wrongNet = isConnected && onChain !== undefined && onChain !== chain.id;
 

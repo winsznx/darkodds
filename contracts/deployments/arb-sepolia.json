@@ -53,7 +53,9 @@
     "f5fu_legacy_MarketImplementation_v4": "0x5dd7b5604419e6c35b0c7c9cf022c5adbaf4615a",
     "f5fu_marketimpl_swap_tx": "0xfb62be64fb3a7a4b0658ff3140fc3e1711e58c51e572a19d07e81b27872830b2",
     "f7_faucet_ownership_transfer_tx": "0x0d9ad3636e6ebe2780557bdef5ee77a39df76832141210c20cb795f7c54ef52e",
-    "f7_faucet_funding_tx": "0x10cdc07d7e1137f62eb666afcda11599d8e680c2044d0f05715ee43b8313c18a"
+    "f7_faucet_funding_tx": "0x10cdc07d7e1137f62eb666afcda11599d8e680c2044d0f05715ee43b8313c18a",
+    "f9_demo_market_13_create_tx": "0x3d79d2c97c4314dc0504db81779f6eb29a0480a192e4f757aea216db74c42366",
+    "f9_demo_market_13_address": "0xDd576f62bF51cB888be4f05E0A94abE1af40C951"
   },
   "safe": {
     "address": "0x042a49628f8A107C476B01bE8edEbB38110FA332",

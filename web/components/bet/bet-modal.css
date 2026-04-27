@@ -1,0 +1,352 @@
+/* ============================================================
+   F9 — BetModal styles. Reuses the dossier modal-backdrop +
+   modal scaffolding from F7's faucet modal where applicable;
+   adds bet-specific progress UI and review-state cards.
+   ============================================================ */
+
+/* The base modal-backdrop / modal classes from F7's dashboard.css already
+   provide hex-corner, dark backdrop, mobile full-screen takeover at <640px.
+   This file only adds bet-specific bits. */
+
+.bm-review {
+  padding: 24px 32px;
+}
+.bm-review .bm-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 12px;
+}
+.bm-review .bm-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 24px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+.bm-review .bm-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.bm-review .bm-summary .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.bm-review .bm-summary .v {
+  font-size: 16px;
+  color: var(--fg);
+}
+
+/* Infinite-allowance disclosure — prominent, two CTAs side-by-side */
+.bm-allowance-disclosure {
+  border: 1px solid var(--declassified-amber);
+  background: var(--bg-soft);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bm-allowance-disclosure .label {
+  font-family: var(--font-stamp);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--declassified-amber);
+}
+.bm-allowance-disclosure .body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+}
+.bm-allowance-disclosure .actions {
+  display: flex;
+  gap: 8px;
+}
+.bm-allowance-disclosure .actions button {
+  flex: 1 1 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+.bm-allowance-disclosure .actions button[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.bm-allowance-confirmed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 16px;
+}
+.bm-allowance-confirmed::before {
+  content: "✓";
+  color: var(--declassified-amber);
+}
+
+.bm-cta-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.bm-cta-row .secondary,
+.bm-error .actions .secondary {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+.bm-cta-row .secondary:hover,
+.bm-error .actions .secondary:hover {
+  background: var(--hairline);
+}
+
+/* ─── Progress UI (5 steps) ─────────────────────────────────── */
+.bm-progress {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bm-progress .bm-section-h {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 12px;
+}
+.bm-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.bm-step[data-status="active"] {
+  border-color: var(--redacted-red);
+  border-left-width: 3px;
+  background: var(--bg);
+}
+.bm-step[data-status="ok"] {
+  border-color: var(--hairline);
+}
+.bm-step[data-status="failed"] {
+  border-color: var(--redacted-red);
+}
+.bm-step[data-status="skipped"] {
+  opacity: 0.5;
+}
+.bm-step .icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline-strong);
+}
+.bm-step[data-status="ok"] .icon {
+  background: #2d6a3e;
+  border-color: #2d6a3e;
+  color: var(--bone);
+}
+.bm-step[data-status="failed"] .icon {
+  background: var(--redacted-red);
+  border-color: var(--redacted-red);
+  color: var(--bone);
+}
+.bm-step[data-status="active"] .icon {
+  background: #000;
+  border-color: #000;
+  position: relative;
+  overflow: hidden;
+}
+.bm-step[data-status="active"] .icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: bm-pulse 1.4s ease-in-out infinite;
+}
+@keyframes bm-pulse {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: -200% 0;
+  }
+}
+.bm-step .label {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.bm-step .sub {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+.bm-step .timer {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+}
+.bm-step .tx-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--hairline-strong);
+}
+.bm-step .tx-link:hover {
+  color: var(--fg);
+}
+
+/* ─── Success ───────────────────────────────────────────────── */
+.bm-success {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.bm-success .stamp {
+  font-size: 22px;
+  padding: 10px 16px;
+  border-width: 2px;
+}
+.bm-success .summary {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  color: var(--fg);
+  margin: 0;
+}
+.bm-success .summary em {
+  font-style: italic;
+  font-weight: 500;
+}
+.bm-success .tx-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--hairline-strong);
+}
+.bm-success .tx-link:hover {
+  color: var(--fg);
+}
+.bm-success .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ─── Error ─────────────────────────────────────────────────── */
+.bm-error {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.bm-error .stamp {
+  font-size: 14px;
+}
+.bm-error .reason {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+  max-width: 400px;
+}
+.bm-error .reason code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-soft);
+  padding: 2px 6px;
+  border: 1px solid var(--hairline);
+}
+.bm-error .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ─── Mobile — full-screen takeover under 768px ─────────────── */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: 0;
+  }
+  .modal {
+    max-width: none;
+    width: 100%;
+    height: 100vh;
+    max-height: none;
+    border: 0;
+    box-shadow: none;
+    overflow-y: auto;
+  }
+  .bm-review,
+  .bm-progress,
+  .bm-success,
+  .bm-error {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .bm-review .bm-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .bm-cta-row {
+    flex-direction: column-reverse;
+  }
+  .bm-cta-row .secondary,
+  .bm-cta-row .modal-cta {
+    width: 100%;
+  }
+}

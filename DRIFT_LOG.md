@@ -6,6 +6,49 @@ Format per §0.2.
 
 ---
 
+## [2026-04-27 F9] BetPanel Open-market quote shows "—" until F12 (publicDecrypt deferred)
+
+**Expected (F9 spec):** BetPanel's "ESTIMATED PAYOUT" field and multiplier derive from the
+live pari-mutuel pools. For Open-state markets (frozen=0), the pools are still encrypted
+handles — the F9 spec planned to publicDecrypt them during the preflight step to give the
+user a real quote before they confirm.
+**Actual:** The quote renders "—" for both estimated payout and multiplier on Open-state
+markets where `yesPoolFrozen == 0 && noPoolFrozen == 0` (pools not yet frozen). Resolved/
+ClaimWindow-state markets with non-zero frozen pools compute and display the quote correctly.
+**Reason:** publicDecrypt of the pool handles requires a round-trip through the Nox gateway
+(the same async operation as F12-HOOK in `web/lib/darkodds/markets.ts`). Adding it during
+the preflight step would add ~2–3s per modal open and required the single-market reader to
+return plaintext pool values — a non-trivial extension to `getDarkOddsMarketDetail`. Deferred
+to F12 polish (the hook is already stubbed; search `F12-HOOK` in `web/lib/darkodds/`).
+**Impact:** BetPanel shows "—" for estimated payout on fresh Open markets (including demo
+market #13 at launch). Bet placement still works correctly — quote is cosmetic only.
+**Decision:** Accepted for F9. F12-HOOK comment in `web/lib/darkodds/markets.ts` is the
+recovery pointer. Estimated effort: ~1h to extend single-market reader + wire into BetPanel.
+
+---
+
+## [2026-04-27 F9] viem fee estimation produces maxFeePerGas below Arb Sepolia minimum basefee
+
+**Expected:** `walletClient.sendTransaction({account, ...})` auto-estimates gas and submits
+successfully.
+**Actual:** On Arb Sepolia at the network minimum basefee (~0.02 gwei = 20,000,000 wei),
+viem's default fee estimator rounds to a value 2,000–10,000 wei below the actual next-block
+basefee. The RPC rejects with `max fee per gas less than block base fee`.
+**Reason:** Arb Sepolia runs at the EIP-1559 minimum (~0.02 gwei) which changes by ±8,000 wei
+per block. Viem's `estimateFeesPerGas` reads the previous block's basefee and applies ~1.2×
+— still too tight at this magnitude.
+**Fix:** Added `feeOverrides(publicClient)` in `web/lib/bet/place-bet.ts` that reads the
+latest block's `baseFeePerGas` and computes `maxFeePerGas = basefee × 5 + 0.01 gwei`.
+All 4 tx-emitting steps (approve, wrap, setOperator, placeBet) pass the explicit overrides.
+On Arb Sepolia, 5× of 0.02 gwei = 0.1 gwei → well above any realistic tick. Same pattern
+mirrored in `tools/verify-f9.ts`.
+**Residual:** Some external wallets (Zerion, Phantom) override the dApp-provided fee values
+with their own estimator — see KNOWN_LIMITATIONS.md §"Some external wallets ignore dApp-supplied
+gas overrides". Deployer / Privy embedded / MetaMask / Rabby wallets all respect the override.
+**Decision:** Fix applied in F9. No contract changes required.
+
+---
+
 ## [2026-04-27 F8] Polymarket on `/markets` is display-only — no proxied trading
 
 **Expected:** PRD §11 F8 originally framed F8 as "bet flow" (Privy connect, cUSDC wrap, placeBet wired). The expanded F8 prompt re-scopes it to: Polymarket Gamma data layer + `/markets` parallel-feed UI rendering DarkOdds + Polymarket markets side-by-side. Bet flow moves to F9 (own modal + `/markets/[id]` detail).

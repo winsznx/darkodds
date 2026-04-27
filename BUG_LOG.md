@@ -5,7 +5,54 @@ Format per PRD §0.3.
 
 ---
 
-## [2026-04-27 F7] wagmi `useChainId()` returns config-narrowed type — can't detect mismatch
+## [2026-04-27 F9] BetModal START OVER button rendered in close-button corner
+
+**Repro:** Reach `error` phase in BetModal → observe "START OVER" text bleeding into the
+top-right corner where the X close button lives.
+**Root cause:** Error state used `className="modal-close"` for the START OVER button. That
+class applies `position: absolute; top: 12px; right: 12px; width: 32px; height: 32px;` —
+the text overflowed the 32×32 icon-sized box into the corner where the close X already sits.
+**Fix:** Changed START OVER button to `className="secondary"` and extended the
+`.bm-cta-row .secondary` CSS selector to also cover `.bm-error .actions .secondary`.
+**Time to fix:** ~5 min.
+**Tags:** #frontend #css #betflow
+
+---
+
+## [2026-04-27 F9] viem default fee estimation races Arb Sepolia basefee
+
+**Repro:** Click CONFIRM BET on any market → approve wallet popup → tx submitted →
+RPC rejects: `max fee per gas less than block base fee: maxFeePerGas: 20004000 baseFee: 20008000`.
+**Root cause:** Viem's `prepareTransactionRequest` reads the previous block's basefee and
+multiplies by ~1.2, but on Arb Sepolia the EIP-1559 minimum basefee is 0.02 gwei and
+fluctuates by ±8,000 wei per block. The prepared maxFeePerGas often lands below the next
+block's minimum by a few thousand wei.
+**Fix:** Added `feeOverrides(publicClient)` helper in `web/lib/bet/place-bet.ts` that reads
+`block.baseFeePerGas` at time-of-submission and computes `maxFeePerGas = basefee × 5 + 0.01 gwei`.
+Spread into all 4 `walletClient.sendTransaction` calls. Cost on Arb Sepolia: ~$0.001/tx.
+**Time to fix:** ~15 min.
+**Tags:** #blockchain #gas #arb-sepolia #betflow
+
+---
+
+## [2026-04-27 F9] Insufficient tUSDC balance not caught before review state
+
+**Repro:** Enter an amount larger than wallet's tUSDC balance → REVIEW BET → CONFIRM BET →
+approve step → wrap tx reverts with ERC20: transfer amount exceeds balance.
+**Root cause:** `PREFLIGHT_OK` reducer case unconditionally advanced to "review" even when
+`preflight.tusdcBalance < params.amountUsdc`. The balance check was missing from the preflight
+effect and the review UI.
+**Fix:** Added a balance gate in the preflight effect in `BetModal.tsx` — if
+`preflight.tusdcBalance < amountUsdc`, dispatch `PREFLIGHT_FAIL` with `errorKind:
+"insufficient_balance"` before reaching review. Error state now renders a "GET TESTUSDC FROM
+FAUCET" CTA that dispatches a `darkodds:open-faucet` custom DOM event (Shell.tsx listens
+and opens FaucetModal).
+**Time to fix:** ~20 min.
+**Tags:** #frontend #betflow #ux
+
+---
+
+## [2026-04-27 F8] wagmi `useChainId()` returns config-narrowed type — can't detect mismatch
 
 **Repro:** typecheck a `useChainId() !== chain.id` comparison where the wagmi
 config declares `chains: [arbitrumSepolia]`. TypeScript flags the comparison

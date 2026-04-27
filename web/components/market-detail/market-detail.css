@@ -381,9 +381,16 @@
   align-items: stretch;
   border: 1px solid var(--hairline-strong);
   background: var(--bg-soft);
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 100%;
 }
 .md-bet-panel .md-amount input {
-  flex: 1;
+  flex: 1 1 0;
+  /* min-width:0 lets the input shrink below its intrinsic content width —
+     without this, browsers default to min-width:auto and the unit element
+     overflows the right border. */
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 18px;
   font-variant-numeric: tabular-nums;
@@ -392,11 +399,13 @@
   color: var(--fg);
   padding: 12px 14px;
   outline: none;
+  width: auto;
 }
 .md-bet-panel .md-amount .unit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   padding: 0 14px;
   font-family: var(--font-mono);
   font-size: 11px;

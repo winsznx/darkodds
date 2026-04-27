@@ -9,6 +9,8 @@ import type {Address, Hex} from "viem";
 
 import type {DarkOddsMarketDetail} from "@/lib/darkodds/single-market";
 
+import {BetModal} from "@/components/bet/BetModal";
+
 import {BetPanel} from "./BetPanel";
 import {EventLog} from "./EventLog";
 import {MarketHeader} from "./MarketHeader";
@@ -27,10 +29,9 @@ const RESUME_STORAGE_PREFIX = "darkodds.bet-flow:";
 export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
   const {user, authenticated} = usePrivy();
   const positionsRef = useRef<UserPositionsHandle>(null);
-  // HALT 2's BetModal will lift this state up via a setter passed down through
-  // BetPanel; for HALT 1 it stays at 0 and UserPositions/EventLog only refresh
-  // on user-driven actions (retry button, manual refresh).
-  const [betRefreshNonce] = useState(0);
+  const [betRefreshNonce, setBetRefreshNonce] = useState(0);
+  const [betModalOpen, setBetModalOpen] = useState(false);
+  const [betParams, setBetParams] = useState<{sideIndex: 0 | 1; amountUsdc: bigint} | null>(null);
 
   // Per-user bet handles. Server-side rendered without a connected user, so
   // we re-fetch client-side once Privy resolves the connected address. Keeps
@@ -88,9 +89,15 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
     setResumeAvailable(false);
   };
 
-  const onOpenBetModal = (_params: {sideIndex: 0 | 1; amountUsdc: bigint}): void => {
-    // Wired up in HALT 2 (BetModal). For HALT 1 the CTA is non-functional.
-    void _params;
+  const onOpenBetModal = (next: {sideIndex: 0 | 1; amountUsdc: bigint}): void => {
+    setBetParams(next);
+    setBetModalOpen(true);
+  };
+  const onBetSuccess = (): void => {
+    // Bumps the refresh nonce so UserPositions + EventLog refetch + decrypt
+    // the just-placed bet, then scrolls the positions section into view.
+    setBetRefreshNonce((n) => n + 1);
+    positionsRef.current?.scrollIntoViewAndRefresh();
   };
 
   return (
@@ -141,6 +148,28 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
       <aside className="md-aside">
         <BetPanel marketState={market.state} outcomes={market.outcomes} onOpenBetModal={onOpenBetModal} />
       </aside>
+
+      <BetModal
+        open={betModalOpen}
+        onClose={() => setBetModalOpen(false)}
+        params={
+          betParams
+            ? {
+                marketAddress: market.address,
+                marketId: market.id,
+                sideIndex: betParams.sideIndex,
+                amountUsdc: betParams.amountUsdc,
+              }
+            : null
+        }
+        marketState={{
+          yesPoolFrozen: market.yesPoolFrozen,
+          noPoolFrozen: market.noPoolFrozen,
+          protocolFeeBps: market.protocolFeeBps,
+        }}
+        outcomeLabels={[market.outcomes[0].label, market.outcomes[1].label]}
+        onSuccess={onBetSuccess}
+      />
     </div>
   );
 }

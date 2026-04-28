@@ -364,18 +364,77 @@
 }
 
 /* SIDEBAR --------------------------------------------------------- */
+/* The .sidebar is the layout reservation (sticky, flex-sized). The visual
+   chrome lives in .sidebar-panel which is absolutely positioned inside, so
+   peek-on-hover can grow the panel from rail to full width WITHOUT
+   reflowing the .dash-main flex sibling. */
 .sidebar {
   flex: 0 0 240px;
-  border-right: 1px solid var(--hairline-strong);
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  padding: 24px 0;
+  background: transparent;
   position: sticky;
   top: 53px; /* topbar height */
   height: calc(100vh - 53px);
-  overflow-y: auto;
+  overflow: visible;
+  z-index: 1;
+  transition: flex 200ms ease-out;
 }
+.sidebar[data-collapsed="true"][data-peek="true"] {
+  z-index: 50;
+}
+.sidebar-panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  border-right: 1px solid var(--hairline-strong);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition:
+    width 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+
+.sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 16px 12px;
+  margin-top: -8px;
+}
+.sidebar-toggle,
+.sidebar-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+.sidebar-toggle:hover,
+.sidebar-pin:hover {
+  color: var(--fg);
+  border-color: var(--hairline-strong);
+  background: var(--bg-soft);
+}
+.sidebar-toggle:focus-visible,
+.sidebar-pin:focus-visible {
+  outline: 2px solid var(--redacted-red);
+  outline-offset: 1px;
+}
+
 .sidebar-section {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -384,6 +443,11 @@
   color: var(--fg-muted);
   padding: 0 24px;
   margin-bottom: 8px;
+  white-space: nowrap;
+  transition:
+    clip-path 200ms ease-out,
+    opacity 140ms 60ms ease-out;
+  clip-path: inset(0 0 0 0);
 }
 .sidebar-nav {
   display: flex;
@@ -404,6 +468,9 @@
   text-decoration: none;
   border-left: 2px solid transparent;
   white-space: nowrap;
+  transition:
+    padding 200ms ease-out,
+    justify-content 200ms ease-out;
 }
 .navitem:hover {
   background: var(--hairline);
@@ -423,11 +490,24 @@
 }
 .navitem .lbl {
   flex: 1;
+  /* min-width: 0 lets the flex item shrink below its text content width.
+     Without it, "MARKETS"/"PORTFOLIO" forces the navitem to overflow its
+     56px rail container and the icon gets pushed off-screen to the left. */
+  min-width: 0;
+  overflow: hidden;
+  transition:
+    clip-path 200ms ease-out,
+    opacity 140ms 60ms ease-out;
+  clip-path: inset(0 0 0 0);
 }
 .navitem .badge {
   font-size: 9px;
   letter-spacing: 0.18em;
   color: var(--fg-muted);
+  transition:
+    clip-path 200ms ease-out,
+    opacity 140ms 60ms ease-out;
+  clip-path: inset(0 0 0 0);
 }
 
 /* PROTOCOL STATS (sidebar footer) */
@@ -438,6 +518,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition:
+    clip-path 200ms ease-out,
+    opacity 140ms 60ms ease-out;
+  clip-path: inset(0 0 0 0);
+  white-space: nowrap;
 }
 .proto-stats .stat-row {
   display: flex;
@@ -481,22 +566,112 @@
   z-index: 40;
 }
 
-@media (max-width: 1100px) {
-  .sidebar {
-    flex: 0 0 64px;
+/* RAIL collapse — applies above the mobile drawer breakpoint.
+   When data-collapsed and not peek, the layout reservation shrinks to 56px
+   and labels clip away (clip-path keeps them in the a11y tree, unlike
+   display:none). When data-peek, the .sidebar-panel grows back to 240px
+   and overlays .dash-main without reflowing it. */
+@media (min-width: 701px) {
+  .sidebar[data-collapsed="true"] {
+    flex: 0 0 56px;
   }
-  .navitem .lbl,
-  .navitem .badge,
-  .sidebar-section,
-  .proto-stats {
-    display: none;
-  }
-  .navitem {
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .sidebar-toolbar {
     justify-content: center;
-    padding: 12px;
+    padding: 0 0 12px;
+  }
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .navitem {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+  }
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .navitem .lbl,
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .navitem .badge {
+    /* Zero the flex allocation so the icon can center in the 56px rail.
+       clip-path keeps the text in the a11y tree; flex:0 0 0 + width:0
+       removes the layout space that was preventing center alignment. */
+    flex: 0 0 0;
+    width: 0;
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .sidebar-section {
+    /* Same a11y trade-off: clipped visually, but also collapse the box so
+       the rail doesn't have a phantom 24px gap above the first nav icon. */
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .sidebar[data-collapsed="true"]:not([data-peek="true"]) .proto-stats {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar[data-collapsed="true"][data-peek="true"] .sidebar-panel {
+    width: 240px;
+    box-shadow:
+      1px 0 0 var(--hairline-strong),
+      8px 0 24px rgba(20, 14, 6, 0.06);
+  }
+}
+
+/* Auto-rail at narrow desktop widths — same visual treatment as manual
+   collapse. Toggling the chevron at this width is a no-op (rail wins) but
+   the persisted state still applies above 1100px. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .sidebar:not([data-peek="true"]) {
+    flex: 0 0 56px;
+  }
+  .sidebar:not([data-peek="true"]) .sidebar-toolbar {
+    justify-content: center;
+    padding: 0 0 12px;
+  }
+  .sidebar:not([data-peek="true"]) .navitem {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+  }
+  .sidebar:not([data-peek="true"]) .navitem .lbl,
+  .sidebar:not([data-peek="true"]) .navitem .badge {
+    flex: 0 0 0;
+    width: 0;
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar:not([data-peek="true"]) .sidebar-section {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .sidebar:not([data-peek="true"]) .proto-stats {
+    clip-path: inset(0 0 0 100%);
+    opacity: 0;
+    pointer-events: none;
   }
   .dash-main {
     padding: 24px 32px 64px;
+  }
+}
+
+/* Reduced motion — no transitions, instant snap. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-panel,
+  .sidebar-section,
+  .proto-stats,
+  .navitem,
+  .navitem .lbl,
+  .navitem .badge {
+    transition: none !important;
   }
 }
 
@@ -516,16 +691,18 @@
     flex: 0 0 240px;
     transform: translateX(-100%);
     transition: transform 240ms ease;
-    border-right: 1px solid var(--hairline-strong);
   }
   .sidebar[data-open="true"] {
     transform: translateX(0);
   }
+  /* Mobile drawer always shows full content — collapse state is desktop-only */
   .sidebar[data-open="true"] .navitem .lbl,
   .sidebar[data-open="true"] .navitem .badge,
   .sidebar[data-open="true"] .sidebar-section,
   .sidebar[data-open="true"] .proto-stats {
-    display: flex;
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    pointer-events: auto;
   }
   .sidebar[data-open="true"] .navitem {
     justify-content: flex-start;

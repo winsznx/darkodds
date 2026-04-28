@@ -402,3 +402,91 @@ demo. Real USDC on Arbitrum is non-permitted (no EIP-2612). The F8 web
 flow's permit-then-wrap pattern will need to fall back to two-tx approve +
 wrap on mainnet. Documented honestly so the demo doesn't oversell the UX
 relative to production.
+
+## Registry ownership operationally delegated to deployer EOA for live-judging period (F10b)
+
+<a id="registry-ownership-temporary-delegation"></a>
+
+### Current state
+
+`MarketRegistry.owner()` is currently the deployer EOA
+`0xF97933…F1ab5` instead of the 2-of-3 Safe multisig
+`0x042a49…F332`. This is the result of a Safe-cosigned operational
+delegation, not a governance regression. On-chain delegation tx:
+[`0x890423a1…43be8ed8`](https://sepolia.arbiscan.io/tx/0x890423a1d9cefd14f65949513a279ee1a48f482004e8ef3ea20abb5243be8ed8).
+
+### Why
+
+F4.5 hardened the registry under a 2-of-3 Safe so production-mode
+ownership requires two signatures for `createMarket` and other admin
+calls. F10 then shipped the `/create` UI: a one-click ChainGPT flow
+where a connected wallet describes a market in natural language and
+deploys it on-chain. Those two designs collide at
+`createMarket(...)` access control:
+
+- multisig path: each market deployment requires a Safe co-sign round
+  (script-side, off-UI) — incompatible with the live demo's
+  judge-clickable button.
+- operational delegation path: ownership held by the deployer EOA
+  during the live-judging window. One click → live market.
+
+### Architecture preserved
+
+- F4.5 multisig hardening artifacts remain intact in the audit trail:
+  Slither clean, 2-of-3 Safe deployment, all 7 prior `OwnershipTransferred`
+  events visible on Arbiscan, deployment notes in
+  `contracts/deployments/arb-sepolia.json`.
+- The delegation adds a single row to ownership history, not a removal
+  of any prior multisig assertion.
+- `tools/multisig-mint-faucet.ts`, `tools/create-demo-market.ts`, and
+  `tools/seed-claimable-market.ts` still operate via the Safe SDK
+  pattern unchanged — the multisig is functional as the Safe, it is
+  simply not the registry owner during the judging window.
+- Audit trail is structured and grep-friendly:
+
+  ```bash
+  $ grep -c '"restoration_pending": true' contracts/deployments/arb-sepolia.json
+  1
+  ```
+
+  surfaces all open delegation commitments in the repo at any moment.
+
+### Production roadmap
+
+```bash
+pnpm exec tsx tools/transfer-registry-ownership.ts --to-safe --confirm
+```
+
+Single EOA tx from the deployer. ~30 seconds. Idempotent. The script:
+
+1. Asserts current owner is the deployer EOA (catches state drift).
+2. Sends `transferOwnership(SAFE)` from the deployer.
+3. Waits for the receipt + re-reads `owner()` to confirm.
+4. Mutates every prior `restoration_pending: true` entry to `false`,
+   stamps `restoration_completed_at`, and appends a new
+   `operational_delegation_restored` entry with `restores_delegation_tx`
+   pointing back to the matching delegation tx hash.
+5. The bidirectional link makes the audit timeline auditable in both
+   directions: any delegation entry's `txHash` matches a future
+   restoration entry's `restores_delegation_tx`.
+
+Expected timing: post-judging, within 7 days of submission. The
+`expected_restoration` field on the delegation entry captures the
+target date in ISO form.
+
+### Why this is the right call for the hackathon
+
+The DoraHacks judging path requires a working live demo. A multisig-gated
+"DEPLOY MARKET" button that requires a second human to co-sign before
+the market exists is not a working live demo — it is a documentation
+artifact pretending to be a feature. Operational delegation flips that
+relationship: the live demo is a real on-chain transaction (judges see
+Arbiscan), and the multisig hardening becomes a documented production
+artifact (judges see this file + the restoration script + the Arbiscan
+ownership history). Both states are first-class.
+
+The repo surfaces the current state visibly to anyone using the app:
+the dashboard topbar carries a "GOVERNANCE STATE" badge that reads
+`owner()` on every page load and renders DEMO MODE (amber) or PRODUCTION
+MODE (green) with a click-through explaining the current state and the
+restoration plan.

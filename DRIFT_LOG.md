@@ -6,6 +6,21 @@ Format per §0.2.
 
 ---
 
+## [2026-04-28 F10b] F4.5 multisig hardening + F10 one-click /create flow conflict at MarketRegistry access control — resolved via operational delegation
+
+**Expected (per PRD §11 F4.5):** `MarketRegistry.owner()` is the 2-of-3 Safe multisig at `0x042a49…F332`; admin calls including `createMarket(...)` require Safe co-sign.
+**Actual:** During the live-judging window, `MarketRegistry.owner()` is the deployer EOA `0xF97933…F1ab5`. Set via Safe-cosigned `transferOwnership` at tx `0x890423a1…43be8ed8`.
+**Reason:** F4.5 hardened the registry under multisig before F10's `/create` UI existed. F10 ships a one-click ChainGPT flow that deploys markets in a single EOA tx; that flow is incompatible with multisig-gated `createMarket`. Two viable resolutions: (a) wire a Safe Transaction Service proposal flow into `/create` (half-day UI work, requires off-app signer 2 to approve) or (b) operationally delegate ownership to the deployer EOA for the judging window with a wired-and-tested `--to-safe` restoration script. We chose (b): the live demo is a real on-chain tx, the multisig hardening becomes a documented production artifact.
+**Impact:** `/create` "DEPLOY MARKET" button becomes a real working flow during the judging window. F4.5 hardening is preserved in the audit trail (Slither clean, 7 prior `OwnershipTransferred` events on Arbiscan, deployment notes intact). The delegation adds one row to the ownership history, not a removal of any prior assertion. `tools/multisig-mint-faucet.ts`, `tools/create-demo-market.ts`, and `tools/seed-claimable-market.ts` continue to use the Safe SDK pattern unchanged — the Safe is functional, it is simply not the registry owner during the judging window.
+**Decision:** Proceed with operational delegation. Restoration is one script run away (`tools/transfer-registry-ownership.ts --to-safe --confirm`). The repo carries this commitment as structured data: `grep -c '"restoration_pending": true' contracts/deployments/arb-sepolia.json` returns 1 and will return 0 after `--to-safe` lands. The dashboard topbar carries a GOVERNANCE STATE badge that reads `owner()` live and renders DEMO MODE (amber) or PRODUCTION MODE (green) so anyone using the app sees the current state, not just the docs.
+**Audit trail:**
+
+- Delegation entry: `contracts/deployments/arb-sepolia.json#governance_history[0]`
+- Full reasoning: `KNOWN_LIMITATIONS.md §registry-ownership-temporary-delegation`
+- Restoration script: `tools/transfer-registry-ownership.ts` (idempotent, both modes; `--confirm` gate; bidirectional `restores_delegation_tx` link in the restoration entry).
+
+---
+
 ## [2026-04-27 F10] SmartContractGenerator used as NLP extractor, not Solidity generator
 
 **Expected (per PRD §8.1):** `/api/chaingpt/generate-market` proxies to ChainGPT Smart Contract Generator; ChainGPT "returns structured market params + (optionally) generated condition Solidity if needed".

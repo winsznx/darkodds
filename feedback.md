@@ -897,3 +897,33 @@ On every push to `main` that touches `contracts/src/*.sol`, the workflow runs `c
 3. **CI latency:** Each contract audit takes 8–15s. 8 contracts = ~90s total. Acceptable for a push-triggered workflow. A cache-by-file-hash skip (checking if the source hasn't changed since the last report) would reduce this to near-zero for PRs that only touch non-contract files.
 
 **What judges will see:** Every push that modifies a contract triggers a fresh audit report committed to the repo. The F4 + F4.5 reports are already in `contracts/audits/`. The F10 CI run will generate `chaingpt-{date}.md` on the first push after this commit.
+
+---
+
+## Phase F10b — design principle: permissionless market creation, by default
+
+DarkOdds ships F10b without a "markets team" curation gate on `MarketRegistry.createMarket(...)`. Once `/create` is wired and the registry owner is reachable (either the deployer EOA in DEMO MODE or a Safe co-sign in PRODUCTION MODE), anyone can ask the protocol to spin up a binary market on any topic.
+
+This is intentional, not an artifact of "we ran out of time to add curation."
+
+### Why permissionless is the right default
+
+Prediction markets are one of the cleanest "truth machines" we have because they require skin in the game — prices reflect aggregated, incentivized beliefs, not polls or pundits. The more permissionless the system, the more truth surface area. Centralized / permissioned platforms (curated Polymarket, Kalshi's regulated filter) become bottlenecks that throttle niche or controversial topics, slow innovation, and create single points of failure for shutdowns or censorship. Intrade and PredictIt show what happens when a permissioned platform meets a determined regulator.
+
+Permissionless rails let markets survive globally and keep innovating even when one jurisdiction cracks down. They also enable the long tail — the weird, specific, time-bound events that centralized platforms ignore because they don't pass a compliance or liquidity sniff test. That long tail is where the most useful signal lives.
+
+### The objections (and how DarkOdds handles them)
+
+**Duplicate / fragmented markets.** Anyone forking "Will X win?" with slightly different rules splits volume — short-term pain, new markets start cold. But markets self-correct: traders and liquidity providers naturally pile into the deepest, fairest, most-trusted one (DEXs and perpetuals already showed this on-chain). The best market wins by competition, not by fiat.
+
+**Regulation.** Treat them like financial derivatives (CFTC's current event-contract framing) rather than gambling. Regulate the on-ramps (KYC/AML at the exchange edge), prosecute provable manipulation under existing laws, let the protocol stay open. On-chain everything makes manipulation more traceable, not less.
+
+**Bad actors / insider trading / abusive markets.** Centralized platforms aren't immune to these (sports betting scandals show insiders rigging outcomes). Permissionless protocols have built-in defenses that improve over time: transparent on-chain history for analytics, reputation/staking/slashing in newer protocols, decentralized dispute resolution, and price-based exposure of manipulation. Edge-case abusive markets get shunned by liquidity anyway — markets have social norms too. The fix isn't pre-approving every market (that just creates more insider opportunity at the gatekeeper level); it's better protocol design plus enforcement of provable crimes.
+
+### Where DarkOdds sits on the spectrum
+
+- **Protocol layer is permissionless** — `createMarket` is admin-gated in F10b's hardening pass, but the admin is a soft gate (DEMO MODE: deployer EOA via sponsored route any judge can hit; PRODUCTION MODE: 2-of-3 Safe). The intent in v1 is to drop the admin gate entirely once F11 (subgraph-backed reputation + slashing for bad-faith oracles) lands.
+- **Resolution layer is honest** — three oracle types (admin, Chainlink price feed, pre-resolved) cover most cases. Bad oracle bindings are a market-wide systemic risk, not a per-market one; we treat oracle vetting as a separate trust-anchor problem.
+- **Confidentiality is orthogonal to permissions** — anyone can deploy any market, and bet sizes stay encrypted via iExec Nox regardless. That's the actual product wedge: the long tail of permissionless markets, with private wagers.
+
+The duopoly of crypto-native permissionless (Polymarket-leaning) and regulated centralized (Kalshi) is already pushing both sides to improve. DarkOdds is choosing the permissionless lane and adding selective disclosure on top — the pieces neither side has.

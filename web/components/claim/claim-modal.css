@@ -1,0 +1,187 @@
+/* ============================================================
+   F10b — ClaimModal styles. Reuses .modal / .modal-backdrop /
+   .modal-head / .modal-cta from dashboard.css; adds claim-flow
+   progress + success + error.
+   ============================================================ */
+
+.cm-progress {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--fg-muted);
+  transition: opacity 0.15s ease;
+}
+
+.cm-step[data-active="true"] {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.cm-step[data-pending="true"] {
+  opacity: 0.45;
+}
+
+.cm-step .lbl {
+  flex: 1 1 auto;
+}
+
+.cm-step .ok {
+  color: var(--accent-yes, #1f5c3d);
+}
+
+.cm-step .tx-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.cm-step .tx-hash:hover {
+  border-bottom-color: var(--fg);
+}
+
+/* ── success ─────────────────────────────────────────────── */
+.cm-success {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cm-success .amount {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1.05;
+  font-variation-settings: "opsz" 144;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-success .amount em {
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--fg-muted);
+  margin-left: 8px;
+}
+
+.cm-success .amount.sealed {
+  font-size: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cm-success .amount.sealed em {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cm-success .amount .sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.cm-success .tx-link {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  border-bottom: 1px solid var(--hairline-strong);
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+.cm-success .tx-link:hover {
+  border-bottom-color: var(--fg);
+}
+
+.cm-success .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.cm-success .actions .modal-cta {
+  flex: 1 1 auto;
+}
+
+.cm-success .actions .secondary,
+.cm-error .actions .secondary {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.cm-success .actions .secondary:hover,
+.cm-error .actions .secondary:hover {
+  background: var(--hairline);
+}
+
+/* ── error ───────────────────────────────────────────────── */
+.cm-error {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cm-error .reason {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin: 0;
+  word-break: break-word;
+  width: 100%;
+}
+
+.cm-error .reason code {
+  background: var(--bg-soft);
+  padding: 8px 10px;
+  display: block;
+  border: 1px solid var(--hairline);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cm-error .actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.cm-error .actions .modal-cta {
+  flex: 1 1 auto;
+}

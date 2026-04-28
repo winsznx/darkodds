@@ -115,6 +115,148 @@
 }
 
 /* ============================================================
+   GOVERNANCE STATE BADGE — F10b
+   Reads MarketRegistry.owner() live; click → modal explainer.
+   ============================================================ */
+.gov-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 0;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+}
+.gov-badge:hover {
+  background: var(--hairline);
+}
+.gov-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  background: var(--fg-muted);
+}
+.gov-badge[data-state="demo"] .gov-dot {
+  background: var(--declassified-amber);
+}
+.gov-badge[data-state="demo"] {
+  border-color: var(--declassified-amber);
+  color: var(--declassified-amber);
+}
+.gov-badge[data-state="production"] .gov-dot {
+  background: var(--accent-yes, #1f5c3d);
+}
+.gov-badge[data-state="production"] {
+  border-color: var(--accent-yes, #1f5c3d);
+  color: var(--accent-yes, #1f5c3d);
+}
+.gov-badge[data-state="unknown"] .gov-dot {
+  background: var(--redacted-red);
+}
+.gov-badge[data-state="unknown"] {
+  border-color: var(--redacted-red);
+  color: var(--redacted-red);
+}
+.gov-badge[data-state="pending"] {
+  opacity: 0.55;
+}
+
+/* Governance modal body — reuses .modal/.modal-backdrop scaffolding */
+.gov-body {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.gov-kv {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) 1fr;
+  gap: 8px 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+}
+.gov-kv .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  align-self: center;
+}
+.gov-kv .v {
+  color: var(--fg);
+  text-decoration: none;
+  word-break: break-all;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gov-kv .v:hover {
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.gov-lede {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg);
+  margin: 0;
+  max-width: 60ch;
+}
+.gov-lede strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+.gov-lede code,
+.gov-foot code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+}
+.gov-pre {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--hairline-strong);
+  padding: 10px 14px;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--fg);
+}
+.gov-foot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Hide the badge label text on narrow screens — keep just the dot */
+@media (max-width: 720px) {
+  .gov-badge .gov-lbl {
+    display: none;
+  }
+  .gov-badge {
+    padding: 8px;
+  }
+}
+
+/* ============================================================
    WALLET BUTTON + DROPDOWN
    ============================================================ */
 .wallet-btn {
@@ -678,6 +820,82 @@
   border-color: #2d6a3e;
   color: var(--bone);
 }
+.modal-cta--secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--hairline-strong);
+}
+.modal-cta--secondary:hover:not(:disabled) {
+  background: var(--hairline);
+}
+
+/* ── Faucet ETH step: collapsible Sepolia → bridge alternative ── */
+.modal-step-alt {
+  margin-top: 4px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  padding: 0;
+}
+.modal-step-alt summary {
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.modal-step-alt summary::-webkit-details-marker {
+  display: none;
+}
+.modal-step-alt summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+}
+.modal-step-alt[open] summary::before {
+  content: "▾ ";
+}
+.modal-step-alt summary:hover {
+  color: var(--fg);
+}
+.modal-step-alt > p {
+  padding: 0 14px;
+}
+.modal-step-alt-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 14px 14px;
+}
+.modal-step-alt-actions .modal-cta {
+  flex: 1 1 auto;
+}
+
+/* ── Faucet error block (full message, no truncation) ── */
+.modal-faucet-error {
+  margin-top: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--redacted-red);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+.modal-faucet-error .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--redacted-red);
+}
+.modal-faucet-error .v {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg);
+}
+
 .modal-foot {
   padding: 16px 32px;
   border-top: 1px solid var(--hairline);

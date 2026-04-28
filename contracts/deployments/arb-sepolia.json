@@ -123,5 +123,20 @@
         "transferTx": "0x0d9ad3636e6ebe2780557bdef5ee77a39df76832141210c20cb795f7c54ef52e"
       }
     }
-  }
+  },
+  "governance_history": [
+    {
+      "ts": "2026-04-28T07:02:53.543Z",
+      "action": "operational_delegation_to_deployer_for_demo",
+      "contract": "MarketRegistry",
+      "fromOwner": "0x042a49628f8A107C476B01bE8edEbB38110FA332 (2-of-3 Safe)",
+      "toOwner": "0xF97933dF45EB549a51Ce4c4e76130c61d08F1ab5 (deployer EOA — temporary)",
+      "txHash": "0x890423a1d9cefd14f65949513a279ee1a48f482004e8ef3ea20abb5243be8ed8",
+      "restoration_pending": true,
+      "reverses_via": "tools/transfer-registry-ownership.ts --to-safe",
+      "duration": "live-judging window only",
+      "expected_restoration": "post-judging, within 7 days of submission (2026-05-05)",
+      "reason": "F10b: enables one-click /create flow with ChainGPT-generated markets during DoraHacks judging period. Safe ownership pattern (F4.5 audit artifact) preserved in audit trail; restoration script tested and ready. Full reasoning: KNOWN_LIMITATIONS.md §registry-ownership-temporary-delegation"
+    }
+  ]
 }

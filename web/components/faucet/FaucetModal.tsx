@@ -2,9 +2,9 @@
 
 import {useEffect, useState} from "react";
 
-import {usePrivy} from "@privy-io/react-auth";
-import {Check, Copy, ExternalLink, X} from "lucide-react";
-import {formatEther, formatUnits, type Hex} from "viem";
+import {usePrivy, useWallets} from "@privy-io/react-auth";
+import {Check, Copy, ExternalLink, Plus, X} from "lucide-react";
+import {BaseError, ContractFunctionRevertedError, formatEther, formatUnits, type Hex} from "viem";
 import {useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract} from "wagmi";
 
 import {chain, txLink} from "@/lib/chains";
@@ -16,7 +16,48 @@ interface FaucetModalProps {
   onClose: () => void;
 }
 
+// Three onramp options for Arb Sepolia ETH. Order roughly: easiest first.
 const CHAINLINK_FAUCET_URL = "https://faucets.chain.link/arbitrum-sepolia";
+const GOOGLE_SEPOLIA_FAUCET_URL = "https://cloud.google.com/application/web3/faucet/ethereum/sepolia";
+const ARBITRUM_BRIDGE_URL =
+  "https://portal.arbitrum.io/bridge?destinationChain=arbitrum-sepolia&sanitized=true&sourceChain=sepolia";
+const ADD_NETWORK_GUIDE_URL = "https://revoke.cash/learn/wallets/add-network/arbitrum-sepolia";
+
+/**
+ * Translates a viem write error into a human-readable label. Tries hard to
+ * surface the contract's custom-error name (e.g. "CooldownActive") instead
+ * of viem's verbose "The contract function 'claim' reverted with the
+ * following reason:" wrapper. Falls back to viem's `shortMessage` if the
+ * cause chain doesn't expose a structured revert reason.
+ */
+function describeClaimError(err: Error): string {
+  if (err instanceof BaseError) {
+    const reverted = err.walk((e) => e instanceof ContractFunctionRevertedError);
+    if (reverted instanceof ContractFunctionRevertedError) {
+      const name = reverted.data?.errorName;
+      if (name === "CooldownActive") {
+        const args = reverted.data?.args as readonly bigint[] | undefined;
+        if (args && args.length > 0) {
+          const nextAt = Number(args[0]);
+          const remaining = Math.max(0, nextAt - Math.floor(Date.now() / 1000));
+          const h = Math.floor(remaining / 3600);
+          const m = Math.floor((remaining % 3600) / 60);
+          return `Cooldown active — next claim in ${h > 0 ? `${h}h ${m}m` : `${Math.max(m, 1)}m`}.`;
+        }
+        return "Cooldown active — wait 6h between claims.";
+      }
+      if (name === "InsufficientFaucetBalance") {
+        return "Faucet is empty. Ping @winsznx to refill it.";
+      }
+      if (name === "EnforcedPause") {
+        return "Faucet is paused.";
+      }
+      if (name) return `Reverted: ${name}.`;
+    }
+    return err.shortMessage || err.message;
+  }
+  return err.message;
+}
 
 export function FaucetModal({open, onClose}: FaucetModalProps): React.ReactElement | null {
   const {authenticated, login} = usePrivy();
@@ -67,6 +108,7 @@ export function FaucetModal({open, onClose}: FaucetModalProps): React.ReactEleme
 
         {authenticated && address && (
           <>
+            <FaucetNetworkStep />
             <FaucetEthStep address={address} />
             <FaucetUsdcStep address={address} />
           </>
@@ -82,6 +124,103 @@ interface AddressedStepProps {
   address: `0x${string}`;
 }
 
+/**
+ * STEP 01 — Add Arb Sepolia to the connected wallet via EIP-3085
+ * `wallet_addEthereumChain`. If the wallet exposes the method (MetaMask /
+ * Rabby / Zerion / most injected wallets do), the user gets a single
+ * popup. Privy embedded wallets are pre-configured for Arb Sepolia, so
+ * the call is effectively a no-op for them. Falls back to a revoke.cash
+ * link if the request fails or the provider doesn't expose the method.
+ */
+function FaucetNetworkStep(): React.ReactElement {
+  const {wallets} = useWallets();
+  const wallet = wallets[0];
+  const [status, setStatus] = useState<"idle" | "adding" | "added" | "error">("idle");
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  async function handleAddNetwork(): Promise<void> {
+    if (!wallet) return;
+    setStatus("adding");
+    setErrMsg(null);
+    try {
+      const provider = await wallet.getEthereumProvider();
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: `0x${chain.id.toString(16)}`,
+            chainName: "Arbitrum Sepolia",
+            nativeCurrency: {name: "Ether", symbol: "ETH", decimals: 18},
+            rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
+            blockExplorerUrls: ["https://sepolia.arbiscan.io"],
+          },
+        ],
+      });
+      setStatus("added");
+    } catch (err) {
+      // user rejected, provider doesn't support, or chain already exists —
+      // any of these means the user can keep going without the button.
+      setStatus("error");
+      setErrMsg(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return (
+    <div className="modal-step">
+      <div className="modal-step-num">STEP 01</div>
+      <h3 className="modal-step-h">Add Arb Sepolia to your wallet.</h3>
+      <p className="modal-step-desc">
+        Required once per wallet. Privy embedded wallets are pre-configured — for MetaMask / Rabby / Zerion /
+        Phantom this adds the network in a single popup.
+      </p>
+
+      <button
+        type="button"
+        className={`modal-cta ${status === "added" ? "modal-cta--success" : ""}`}
+        onClick={() => void handleAddNetwork()}
+        disabled={!wallet || status === "adding" || status === "added"}
+      >
+        {status === "idle" && (
+          <>
+            <Plus size={12} /> ADD NETWORK
+          </>
+        )}
+        {status === "adding" && "WAITING FOR WALLET…"}
+        {status === "added" && (
+          <>
+            <Check size={12} /> NETWORK ADDED
+          </>
+        )}
+        {status === "error" && (
+          <>
+            <Plus size={12} /> RETRY ADD NETWORK
+          </>
+        )}
+      </button>
+
+      {status === "error" && errMsg && (
+        <div className="modal-balance-row" style={{color: "var(--fg-muted)"}}>
+          <span className="k">Note</span>
+          <span style={{fontSize: 11}}>
+            Wallet rejected or doesn&apos;t expose this method. Add manually via{" "}
+            <a href={ADD_NETWORK_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+              revoke.cash guide ↗
+            </a>
+            .
+          </span>
+        </div>
+      )}
+
+      <div className="modal-balance-row" style={{color: "var(--fg-muted)"}}>
+        <span className="k">Manual guide</span>
+        <a href={ADD_NETWORK_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+          revoke.cash <ExternalLink size={10} style={{marginLeft: 2, verticalAlign: "middle"}} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function FaucetEthStep({address}: AddressedStepProps): React.ReactElement {
   const ethBal = useBalance({address});
   const [copied, setCopied] = useState(false);
@@ -95,11 +234,11 @@ function FaucetEthStep({address}: AddressedStepProps): React.ReactElement {
 
   return (
     <div className="modal-step">
-      <div className="modal-step-num">STEP 01</div>
+      <div className="modal-step-num">STEP 02</div>
       <h3 className="modal-step-h">Get Arb Sepolia ETH.</h3>
       <p className="modal-step-desc">
-        You need ETH for gas. Chainlink&apos;s public faucet is the canonical path — paste the address below
-        into the form there.
+        You need ETH for gas. Two paths — try Chainlink&apos;s direct Arb Sepolia faucet first; if it&apos;s
+        rate-limited, the Sepolia → Arb bridge is the fallback.
       </p>
 
       <div className="modal-addr">
@@ -112,6 +251,32 @@ function FaucetEthStep({address}: AddressedStepProps): React.ReactElement {
       <a className="modal-cta" href={CHAINLINK_FAUCET_URL} target="_blank" rel="noopener noreferrer">
         OPEN CHAINLINK FAUCET <ExternalLink size={12} />
       </a>
+
+      <details className="modal-step-alt">
+        <summary>Or: bridge from Ethereum Sepolia →</summary>
+        <p className="modal-step-desc" style={{marginTop: 8}}>
+          Two-step path when Chainlink&apos;s Arb Sepolia faucet is dry. Get Sepolia ETH first, then bridge to
+          Arb Sepolia.
+        </p>
+        <div className="modal-step-alt-actions">
+          <a
+            className="modal-cta modal-cta--secondary"
+            href={GOOGLE_SEPOLIA_FAUCET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GOOGLE CLOUD SEPOLIA FAUCET <ExternalLink size={12} />
+          </a>
+          <a
+            className="modal-cta modal-cta--secondary"
+            href={ARBITRUM_BRIDGE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ARBITRUM BRIDGE <ExternalLink size={12} />
+          </a>
+        </div>
+      </details>
 
       <div className="modal-balance-row">
         <span className="k">Current ETH</span>
@@ -179,7 +344,7 @@ function FaucetUsdcStep({address}: AddressedStepProps): React.ReactElement {
 
   return (
     <div className="modal-step">
-      <div className="modal-step-num">STEP 02</div>
+      <div className="modal-step-num">STEP 03</div>
       <h3 className="modal-step-h">Claim TestUSDC.</h3>
       <p className="modal-step-desc">
         1,000 tUSDC every 6 hours. Wrap into cUSDC inside any market to bet confidentially.
@@ -203,9 +368,9 @@ function FaucetUsdcStep({address}: AddressedStepProps): React.ReactElement {
         </div>
       )}
       {claimError && (
-        <div className="modal-balance-row" style={{color: "var(--redacted-red)"}}>
+        <div className="modal-faucet-error" role="alert">
           <span className="k">Error</span>
-          <span>{claimError.message.split("\n")[0].slice(0, 60)}</span>
+          <span className="v">{describeClaimError(claimError)}</span>
         </div>
       )}
 

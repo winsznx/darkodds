@@ -34,6 +34,7 @@
     "verify:f7": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f7.ts \"$@\"' --",
     "verify:f8": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f8.ts \"$@\"' --",
     "verify:f9": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f9.ts \"$@\"' --",
+    "verify:f10b": "bash -c 'set -a && source .env && [ -f .env.local ] && source .env.local; set +a && tsx tools/verify-f10b.ts \"$@\"' --",
     "dev:web": "pnpm --filter web run dev",
     "build:web": "pnpm --filter web run build",
     "prepare": "husky"

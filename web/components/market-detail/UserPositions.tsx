@@ -5,7 +5,7 @@ import {forwardRef, useCallback, useEffect, useImperativeHandle, useState} from 
 import {usePrivy} from "@privy-io/react-auth";
 import {formatUnits, type Hex} from "viem";
 
-import {useNoxClient} from "@/lib/nox/client-hook";
+import {safeDecrypt, useNoxClient} from "@/lib/nox/client-hook";
 
 import {ZERO_BYTES32} from "@/lib/darkodds/single-market";
 
@@ -42,8 +42,9 @@ export const UserPositions = forwardRef<UserPositionsHandle, UserPositionsProps>
   {initialUserBets, refreshNonce = 0},
   ref,
 ) {
-  const {authenticated} = usePrivy();
+  const {authenticated, user} = usePrivy();
   const {client: nox, ready: noxReady} = useNoxClient();
+  const walletAddress = user?.wallet?.address;
 
   const [positions, setPositions] = useState<DecryptedPosition[]>([]);
   const [internalNonce, setInternalNonce] = useState(0);
@@ -61,7 +62,7 @@ export const UserPositions = forwardRef<UserPositionsHandle, UserPositionsProps>
   );
 
   const decryptHandles = useCallback(async () => {
-    if (!authenticated || !noxReady || !nox || !initialUserBets) {
+    if (!authenticated || !noxReady || !nox || !initialUserBets || !walletAddress) {
       setPositions([]);
       return;
     }
@@ -79,7 +80,7 @@ export const UserPositions = forwardRef<UserPositionsHandle, UserPositionsProps>
     const results = await Promise.all(
       sides.map(async ({side, handle}) => {
         try {
-          const out = await nox.decrypt(handle);
+          const out = await safeDecrypt(nox, handle, walletAddress);
           if (typeof out.value !== "bigint") {
             return {side, status: "error" as const, amount: null, errorMessage: "non-bigint result"};
           }
@@ -91,7 +92,7 @@ export const UserPositions = forwardRef<UserPositionsHandle, UserPositionsProps>
       }),
     );
     setPositions(results);
-  }, [authenticated, noxReady, nox, initialUserBets]);
+  }, [authenticated, noxReady, nox, walletAddress, initialUserBets]);
 
   useEffect(() => {
     void decryptHandles();

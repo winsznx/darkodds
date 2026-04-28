@@ -368,3 +368,130 @@ string is `ConfidentialTransfer(address,address,bytes32)` not `uint256`.
 **Fix:** Changed topic hash string to `keccak256("ConfidentialTransfer(address,address,bytes32)")`.
 **Time to fix:** ~2 min.
 **Tags:** #test #events #UDVT
+
+---
+
+## [2026-04-28 F10b] Nox SDK decrypts trigger N parallel auth signatures (TOCTOU race)
+
+**Repro:** Connect MetaMask to /portfolio with 7+ open positions. MetaMask shows
+"1 of 7" pending signature requests on first connect, even before any user
+interaction.
+
+**Symptom:** Each `decrypt(handle)` call queues its own EIP-712
+`DataAccessAuthorization` signature. With Privy embedded wallets the signatures
+auto-resolve silently (which masked the bug in F9 verification); MetaMask
+surfaces the queue.
+
+**Root cause:** `node_modules/@iexec-nox/handle/src/methods/decrypt.ts` checks
+`localStorage` for cached auth material. If absent, it generates a fresh RSA
+keypair and asks for a signature, then caches. Concurrent calls all hit the
+storage-empty branch simultaneously (TOCTOU) → N signatures.
+
+**Fix:** Module-level `safeDecrypt()` helper in `web/lib/nox/client-hook.ts`
+that serializes the FIRST decrypt per wallet address. Subsequent decrypts
+wait for the first to populate localStorage, then run in parallel without
+further signatures. Wired into `PositionRow`, `UserPositions`, `runClaim`.
+8 prompts → 1 prompt on first /portfolio connect.
+
+**Time to fix:** ~30 min (recon + helper + wiring).
+**Tags:** #nox #sdk #auth #race-condition
+
+---
+
+## [2026-04-28 F10b] ChainGPT smartcontractgenerator refuses non-Solidity prompts
+
+**Repro:** POST `/api/chaingpt/generate-market` with the F10b mirror prompt
+"Create a DarkOdds prediction market mirroring this Polymarket question..."
+**Symptom:** API returned 422 with empty `raw` field.
+
+**Root cause:** Two stacked bugs.
+
+1. The `@chaingpt/smartcontractgenerator` SDK's `createSmartContractBlob`
+   response shape is doubly nested: `result.data.bot.data.bot`. Our code read
+   `result.bot` which is undefined → `raw = ""`.
+2. Even after the unwrap fix, the model is hardwired with a Solidity-only
+   system prompt and refuses extraction prompts: "I'm ChainGPT, your Solidity
+   smart contract expert..." for every non-Solidity request.
+
+**Fix:** Switched to `@chaingpt/generalchat` (a general-purpose Web3-fluent
+model). Response shape is `result.data.bot` (single level). Strengthened the
+system prompt with strong delimiters + worked examples for crypto and sports
+cases. Web3-framed wrapper ("Solidity smart contract requirement gathering")
+slips past GeneralChat's topic filter so non-crypto prompts extract cleanly
+too. Old SDK packages dropped.
+
+**Time to fix:** ~45 min including SDK probe + prompt iteration.
+**Tags:** #chaingpt #sdk #prompt-engineering
+
+---
+
+## [2026-04-28 F10b] /create wagmi useWriteContract didn't apply F9 fee overrides
+
+**Repro:** /create page → DEPLOY MARKET button. MetaMask returns "max fee per
+gas less than block base fee" revert (same Arb Sepolia floor race we fixed
+for /place-bet in F9).
+
+**Root cause:** /create used wagmi's `useWriteContract` directly which doesn't
+expose a clean way to attach pre-computed `maxFeePerGas`/`maxPriorityFeePerGas`.
+The default viem estimator races the network-minimum basefee.
+
+**Fix:** Extracted `getArbSepoliaFeeOverrides(publicClient)` into shared
+`web/lib/contracts/fees.ts` (5× basefee + 0.01 gwei priority — same logic as
+F9 BetModal). Refactored /create to `walletClient.sendTransaction({...fees})`
+matching the place-bet/run-claim pattern. Migrated existing place-bet and
+run-claim call sites to import from the shared helper.
+
+**Time to fix:** ~20 min.
+**Tags:** #fees #arb-sepolia #wagmi
+
+---
+
+## [2026-04-28 F10b] /create createMarket reverted with OwnableUnauthorizedAccount for non-deployer wallets
+
+**Repro:** Connect any wallet other than the deployer EOA, click DEPLOY MARKET
+on /create. MetaMask shows "Network fee: Unavailable" + red Review-alert.
+
+**Root cause:** `MarketRegistry.createMarket(...)` is `onlyOwner`. F4.5 hardened
+ownership to a 2-of-3 Safe; F10 ships a one-click /create UI that submits a
+single EOA tx. The two designs collide — non-owner wallets revert with
+`OwnableUnauthorizedAccount`. MetaMask's `eth_estimateGas` simulates the call,
+sees the revert, and shows "Unavailable" rather than estimating gas for a
+failing tx. The user's ETH balance is irrelevant.
+
+**Fix:**
+
+1. F10b operational delegation — Safe-cosigned `transferOwnership(deployerEOA)`
+   for the live-judging window. Reversible via `--to-safe`. See
+   `KNOWN_LIMITATIONS.md §registry-ownership-temporary-delegation`.
+2. Sponsored deployment route `/api/admin/deploy-market` for judges connecting
+   wallets other than the deployer. Server signs with `DEPLOYER_PRIVATE_KEY`,
+   per-IP 60s rate limit, 503 self-disable when ownership returns to the Safe.
+3. /create page detects connected wallet vs deployer EOA and routes the
+   request accordingly. Amber "SPONSORED DEPLOYMENT — DEMO MODE" banner
+   surfaces the routing to the user.
+
+**Time to fix:** ~3 hours including the operational-delegation script,
+governance badge, sponsored route, and UX disclosures.
+**Tags:** #access-control #multisig #ux #demo-mode
+
+---
+
+## [2026-04-28 F10b] Faucet error messages truncated mid-sentence
+
+**Repro:** Click CLAIM 1000 TESTUSDC within 6h cooldown window. Modal shows
+"The contract function 'claim' reverted with the following re" with the rest
+clipped.
+
+**Root cause:** `claimError.message.split("\n")[0].slice(0, 60)` was truncating
+the prefix wrapper viem prepends to revert reasons, leaving the actual reason
+("CooldownActive(<nextAt>)") off-screen.
+
+**Fix:** New `describeClaimError(err)` helper that walks viem's error chain
+via `err.walk(e => e instanceof ContractFunctionRevertedError)` and extracts
+`data.errorName` / `data.args`. Translates known custom errors to clean
+messages: `CooldownActive(nextAt)` → "Cooldown active — next claim in 5h 22m."
+(computed live from the revert arg). Removed the 60-char slice; full message
+shown in a dedicated `.modal-faucet-error` block.
+
+**Time to fix:** ~10 min.
+**Tags:** #faucet #ux #viem #error-handling

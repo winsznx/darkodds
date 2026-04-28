@@ -8,6 +8,82 @@
   gap: 32px;
 }
 
+/* ── Polymarket → DarkOdds clone banner (Model C wedge) ──────────── */
+.create-mirror-banner {
+  border: 1px solid var(--redacted-red);
+  background: var(--bg-soft);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.create-mirror-banner .mirror-question {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.create-mirror-banner .mirror-question em {
+  font-style: italic;
+  color: var(--fg);
+}
+
+.create-mirror-banner .mirror-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--hairline-strong);
+  padding-bottom: 2px;
+}
+
+.create-mirror-banner .mirror-link:hover {
+  border-bottom-color: var(--fg);
+}
+
+/* ── Sponsored deployment banner (judge wallet, not deployer) ────── */
+.create-sponsored-banner {
+  border: 1px solid var(--declassified-amber);
+  background: var(--bg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.create-sponsored-banner .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--declassified-amber);
+}
+
+.create-sponsored-banner .body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+  max-width: 60ch;
+}
+
 /* ── prompt panel ─────────────────────────────────────────── */
 .create-prompt-panel {
   border: 1px solid var(--hairline-strong);

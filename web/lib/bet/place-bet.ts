@@ -17,7 +17,6 @@
 import {
   encodeFunctionData,
   maxUint256,
-  parseGwei,
   type Address,
   type Hex,
   type PublicClient,
@@ -28,6 +27,7 @@ import type {HandleClient} from "@iexec-nox/handle";
 
 import {addresses} from "@/lib/contracts/addresses";
 import {confidentialUsdcAbi, marketAbi, testUsdcAbi} from "@/lib/contracts/generated";
+import {getArbSepoliaFeeOverrides} from "@/lib/contracts/fees";
 
 import {classifyError} from "./errors";
 import {persistState, STEPS, type BetAction, type BetState, type StepId} from "./state-machine";
@@ -154,29 +154,8 @@ async function runStep(step: StepId, ctx: StepCtx): Promise<Hex | null> {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Fee overrides
-//
-// Arb Sepolia base fee fluctuates by a few thousand wei per block at the
-// network minimum (~0.02 gwei). viem's default fee estimation rounds the
-// previous block's basefee, which often lands a few wei BELOW the current
-// block's basefee → tx revert with `max fee per gas less than block base
-// fee`.
-//
-// Fix: read the latest block's basefee and apply a generous buffer (5× +
-// 0.01 gwei priority) so wallet popups always submit successfully even if
-// the chain ticks the basefee mid-flight. Cost is negligible on Arb
-// Sepolia: 5× of 0.02 gwei = 0.1 gwei → ~$0.001 per tx.
-// ────────────────────────────────────────────────────────────────────────────
-async function feeOverrides(
-  publicClient: PublicClient,
-): Promise<{maxFeePerGas: bigint; maxPriorityFeePerGas: bigint}> {
-  const block = await publicClient.getBlock({blockTag: "latest"});
-  const basefee = block.baseFeePerGas ?? parseGwei("0.02");
-  const maxPriorityFeePerGas = parseGwei("0.01");
-  const maxFeePerGas = basefee * BigInt(5) + maxPriorityFeePerGas;
-  return {maxFeePerGas, maxPriorityFeePerGas};
-}
+// Fee overrides moved to lib/contracts/fees.ts (getArbSepoliaFeeOverrides).
+// Same 5× basefee buffer + 0.01 gwei priority as before. Imported above.
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step implementations
@@ -190,7 +169,7 @@ async function runApprove(ctx: StepCtx): Promise<Hex> {
     functionName: "approve",
     args: [addresses.ConfidentialUSDC, amount],
   });
-  const fees = await feeOverrides(clients.publicClient);
+  const fees = await getArbSepoliaFeeOverrides(clients.publicClient);
   const hash = await walletClient.sendTransaction({
     account,
     chain: walletClient.chain ?? null,
@@ -215,7 +194,7 @@ async function runWrap(ctx: StepCtx): Promise<Hex> {
     functionName: "wrap",
     args: [params.amountUsdc, handle as Hex, handleProof as Hex],
   });
-  const fees = await feeOverrides(clients.publicClient);
+  const fees = await getArbSepoliaFeeOverrides(clients.publicClient);
   const hash = await walletClient.sendTransaction({
     account,
     chain: walletClient.chain ?? null,
@@ -250,7 +229,7 @@ async function runSetOperator(ctx: StepCtx): Promise<Hex> {
     functionName: "setOperator",
     args: [params.marketAddress, Number(oneYearOut)],
   });
-  const fees = await feeOverrides(clients.publicClient);
+  const fees = await getArbSepoliaFeeOverrides(clients.publicClient);
   const hash = await walletClient.sendTransaction({
     account,
     chain: walletClient.chain ?? null,
@@ -271,7 +250,7 @@ async function runPlaceBetTx(ctx: StepCtx): Promise<Hex> {
     functionName: "placeBet",
     args: [params.sideIndex, betHandle, betProof],
   });
-  const fees = await feeOverrides(clients.publicClient);
+  const fees = await getArbSepoliaFeeOverrides(clients.publicClient);
   const hash = await walletClient.sendTransaction({
     account,
     chain: walletClient.chain ?? null,

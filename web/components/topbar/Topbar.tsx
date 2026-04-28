@@ -7,6 +7,7 @@ import {Menu} from "lucide-react";
 import {ThemeToggle} from "@/app/_landing/ThemeToggle";
 
 import {FaucetButton} from "./FaucetButton";
+import {GovernanceBadge} from "./GovernanceBadge";
 import {NetworkChip} from "./NetworkChip";
 import {WalletButton} from "./WalletButton";
 
@@ -32,6 +33,7 @@ export function Topbar({onOpenSidebar, onOpenFaucet}: TopbarProps): React.ReactE
       <div className="topbar-right">
         <NetworkChip />
         <FaucetButton onOpen={onOpenFaucet} />
+        <GovernanceBadge />
         <ThemeToggle />
         <WalletButton />
       </div>

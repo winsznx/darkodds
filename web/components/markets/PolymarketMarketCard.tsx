@@ -1,6 +1,7 @@
 "use client";
 
 import {ExternalLink} from "lucide-react";
+import Link from "next/link";
 
 import type {PolymarketMarket} from "@/lib/polymarket";
 
@@ -9,8 +10,10 @@ import {formatEndDate, formatProbability, formatUsdCompact} from "./format";
 /**
  * Polymarket market card. Plaintext volume on the foot (visual contrast
  * against the DarkOdds redaction bar). "VIEW ON POLYMARKET ↗" is a real
- * outbound link with rel="noopener noreferrer"; "MIRROR ON DARKODDS →" is
- * disabled with an F11 tooltip — visibly present per F8 spec.
+ * outbound link with rel="noopener noreferrer"; "MIRROR ON DARKODDS →"
+ * deep-links to /create with the Polymarket market id pre-encoded so the
+ * ChainGPT-powered create flow can hydrate the prompt textarea with the
+ * mirrored question (Model C wedge, F10b).
  */
 export function PolymarketMarketCard({market}: {market: PolymarketMarket}): React.ReactElement {
   // Top outcome = the highest-probability label. Renders general-purpose
@@ -56,9 +59,13 @@ export function PolymarketMarketCard({market}: {market: PolymarketMarket}): Reac
           >
             VIEW ON POLYMARKET <ExternalLink size={11} />
           </a>
-          <span className="mc-cta" data-disabled="true" aria-disabled>
-            MIRROR ON DARKODDS →<span className="mc-tip">Coming in /create — Phase F11</span>
-          </span>
+          <Link
+            className="mc-cta"
+            href={`/create?source=polymarket&id=${encodeURIComponent(market.id)}`}
+            data-test="mirror-on-darkodds"
+          >
+            MIRROR ON DARKODDS →
+          </Link>
         </div>
       </div>
     </article>

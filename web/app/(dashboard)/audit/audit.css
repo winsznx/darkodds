@@ -1,0 +1,288 @@
+/* ============================================================
+   /audit — selective-disclosure attestation generator + verifier
+   ============================================================ */
+
+.au-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── tab switcher ─────────────────────────────────────────── */
+.au-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 8px;
+}
+
+.au-tab {
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.au-tab[data-active="true"] {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+}
+
+.au-tab:hover:not([data-active="true"]) {
+  color: var(--fg);
+}
+
+/* ── panel base ───────────────────────────────────────────── */
+.au-panel {
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.au-panel h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.au-panel .lede {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: 0;
+  max-width: 60ch;
+}
+
+/* ── form fields ──────────────────────────────────────────── */
+.au-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.au-field label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.au-input,
+.au-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--hairline-strong);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.au-textarea {
+  min-height: 220px;
+  font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.au-input:focus,
+.au-textarea:focus {
+  border-color: var(--fg);
+}
+
+.au-input:disabled {
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+/* ── KV grid for source-claim summary ─────────────────────── */
+.au-kv {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 8px 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+}
+
+.au-kv .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  align-self: center;
+}
+
+.au-kv .v {
+  color: var(--fg);
+  word-break: break-all;
+}
+
+/* ── bearer-mode warning ──────────────────────────────────── */
+.au-bearer-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--declassified-amber);
+  background: var(--bg);
+}
+
+.au-bearer-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--declassified-amber);
+  cursor: pointer;
+}
+
+.au-bearer-toggle input {
+  cursor: pointer;
+}
+
+.au-bearer-warning {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+/* ── CTAs ────────────────────────────────────────────────── */
+.au-cta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.au-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.au-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.au-cta:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.au-cta--secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--hairline-strong);
+}
+
+.au-cta--secondary:not(:disabled):hover {
+  background: var(--hairline);
+  opacity: 1;
+}
+
+/* ── result blocks ────────────────────────────────────────── */
+.au-error {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--redacted-red);
+  padding: 10px 12px;
+  border: 1px solid var(--redacted-red);
+  background: var(--bg);
+  word-break: break-word;
+}
+
+.au-result-stamp {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.au-result-valid {
+  border-left: 3px solid var(--accent-yes, #1f5c3d);
+  padding-left: 16px;
+}
+
+.au-result-invalid {
+  border-left: 3px solid var(--redacted-red);
+  padding-left: 16px;
+}
+
+.au-pre {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 12px 14px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--fg);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.au-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.au-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 700px) {
+  .au-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .au-tab {
+    padding: 12px 12px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+}

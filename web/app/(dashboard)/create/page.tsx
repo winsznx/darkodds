@@ -475,13 +475,13 @@ function CreateInner(): React.ReactElement {
                 <div className="create-sponsored-banner" role="note">
                   <span className="label">
                     <Shield size={11} />
-                    SPONSORED DEPLOYMENT — DEMO MODE
+                    SPONSORED DEPLOYMENT — OPEN-CREATE PHASE
                   </span>
                   <p className="body">
-                    Your wallet isn&apos;t the MarketRegistry owner, so the tx is signed server-side by the
-                    DarkOdds deployer EOA (the operationally-delegated owner during the live-judging window).
-                    You see a real on-chain market on Arb Sepolia; gas is on us. Limit: 1 sponsored deploy per
-                    IP per minute.
+                    Open-create is the permissionless deploy phase: anyone signs a market into existence on
+                    Arb Sepolia. Your wallet isn&apos;t the registry owner, so the tx is signed server-side by
+                    the DarkOdds deployer EOA — gas is on us. The 2-of-3 Safe (governance-curated phase) can
+                    resume ownership at any time. Limit: 1 sponsored deploy per IP per minute.
                   </p>
                 </div>
               )}

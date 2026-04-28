@@ -14,18 +14,26 @@ import {marketRegistryAbi} from "@/lib/contracts/generated";
  *
  * Reads `MarketRegistry.owner()` live and renders one of:
  *
- *   DEMO MODE       (redacted-amber dot)  → owner is the deployer EOA.
- *                                            One-click /create flow is functional.
- *   PRODUCTION MODE (accent-yes dot)      → owner is the 2-of-3 Safe.
- *                                            /create needs Safe co-sign — script-side.
- *   PENDING…        (muted dot)           → owner read in flight.
- *   UNKNOWN OWNER   (redacted-red dot)    → owner is neither (state drift, manual investigation).
+ *   OPEN-CREATE        (amber dot)  → owner is the deployer EOA. /create
+ *                                     UI mints markets in a single tx.
+ *                                     Permissionless market creation phase
+ *                                     of the protocol's maturity model.
+ *   GOVERNANCE-CURATED (green dot)  → owner is the 2-of-3 Safe. /create
+ *                                     needs script-side multisig co-sign.
+ *                                     Curation-gated phase of the protocol's
+ *                                     maturity model.
+ *   READING…           (muted dot)  → owner read in flight.
+ *   UNKNOWN OWNER      (red dot)    → owner is neither (state drift,
+ *                                     manual investigation).
  *
- * Click opens a modal explaining the current state and the restoration plan.
+ * Both OPEN-CREATE and GOVERNANCE-CURATED are legitimate protocol modes —
+ * not "production vs demo". The protocol's design intent is to ship with
+ * both phases and surface the current one to anyone using the app, so
+ * judges (and end users) see it before reading docs.
  *
- * Surfacing this in the topbar (between FAUCET and theme toggle) means the
- * governance state is visible to anyone using the app — judges see it before
- * reading docs, not after.
+ * Internal state names `demo` / `production` are retained as data-state
+ * CSS hooks for stable styling; the user-facing labels are the OPEN-CREATE
+ * / GOVERNANCE-CURATED renames.
  */
 
 type GovernanceState = "demo" | "production" | "pending" | "unknown";
@@ -68,9 +76,9 @@ export function GovernanceBadge(): React.ReactElement {
       >
         <span className="gov-dot" aria-hidden />
         <span className="gov-lbl">
-          {state === "demo" && "DEMO MODE"}
-          {state === "production" && "PRODUCTION MODE"}
-          {state === "pending" && "PENDING…"}
+          {state === "demo" && "OPEN-CREATE"}
+          {state === "production" && "GOVERNANCE-CURATED"}
+          {state === "pending" && "READING…"}
           {state === "unknown" && "UNKNOWN OWNER"}
         </span>
       </button>
@@ -115,8 +123,8 @@ function GovernanceModal({state, owner, onClose}: GovernanceModalProps): React.R
                 color: stampColor(state),
               }}
             >
-              {state === "demo" && "GOVERNANCE STATE / DEMO MODE"}
-              {state === "production" && "GOVERNANCE STATE / PRODUCTION MODE"}
+              {state === "demo" && "GOVERNANCE STATE / OPEN-CREATE"}
+              {state === "production" && "GOVERNANCE STATE / GOVERNANCE-CURATED"}
               {state === "pending" && "GOVERNANCE STATE / READING…"}
               {state === "unknown" && "GOVERNANCE STATE / UNKNOWN"}
             </span>
@@ -124,12 +132,12 @@ function GovernanceModal({state, owner, onClose}: GovernanceModalProps): React.R
           <h2 className="modal-title">
             {state === "demo" && (
               <>
-                Operationally <em>delegated</em>.
+                Open-create <em>phase</em>.
               </>
             )}
             {state === "production" && (
               <>
-                Multisig <em>guarded</em>.
+                Governance-curated <em>phase</em>.
               </>
             )}
             {state === "pending" && (
@@ -165,7 +173,7 @@ function GovernanceModal({state, owner, onClose}: GovernanceModalProps): React.R
             >
               {owner ? `${owner.slice(0, 10)}…${owner.slice(-6)}` : "—"} <ExternalLink size={10} />
             </a>
-            <span className="k">Production owner</span>
+            <span className="k">Multisig owner</span>
             <a className="v" href={addressLink(addresses.Safe)} target="_blank" rel="noopener noreferrer">
               {addresses.Safe.slice(0, 10)}…{addresses.Safe.slice(-6)} (2-of-3 Safe){" "}
               <ExternalLink size={10} />
@@ -175,12 +183,17 @@ function GovernanceModal({state, owner, onClose}: GovernanceModalProps): React.R
           {state === "demo" && (
             <>
               <p className="gov-lede">
-                <strong>Live-judging window only.</strong> Registry ownership is operationally delegated to
-                the deployer EOA so the {"/"}create UI can deploy ChainGPT-generated markets in a single
-                click. The 2-of-3 Safe pattern (F4.5 hardening) is preserved in the audit trail — it is not
-                the current owner during this window.
+                Anyone can deploy a market via the {"/"}create UI in a single click. Registry ownership is
+                held by the deployer EOA — judges connecting any wallet route through a sponsored deployment
+                path. The 2-of-3 Safe (F4.5 hardening artifact) remains the long-term curation anchor and can
+                resume ownership at any time via the script below.
               </p>
-              <p className="gov-lede">Restoration is one script run away:</p>
+              <p className="gov-lede">
+                <strong>Both phases are first-class protocol modes</strong>, not feature toggles. Open-create
+                is the permissionless wedge — the long tail of markets centralized platforms reject. The
+                eventual governance-curated phase is the production-mode safety floor.
+              </p>
+              <p className="gov-foot">Switch to governance-curated mode:</p>
               <pre className="gov-pre">
                 pnpm exec tsx tools/transfer-registry-ownership.ts --to-safe --confirm
               </pre>
@@ -198,15 +211,20 @@ function GovernanceModal({state, owner, onClose}: GovernanceModalProps): React.R
           {state === "production" && (
             <>
               <p className="gov-lede">
-                Registry ownership is held by the 2-of-3 Safe multisig. Admin calls including{" "}
-                <code>createMarket(...)</code> require two signatures and a Safe SDK execution path — the{" "}
-                {"/"}create UI&apos;s one-click button does not work in this state.
+                Registry ownership is held by the 2-of-3 Safe multisig. New markets land via Safe co-sign —
+                every <code>createMarket(...)</code> call requires two signatures and a script-side execution
+                path. This is the production-mode safety floor of the protocol&apos;s maturity model.
+              </p>
+              <p className="gov-lede">
+                <strong>Both phases are first-class protocol modes</strong>, not feature toggles.
+                Governance-curated is the curation phase: trades a thinner long-tail catalog for tighter
+                operational control. The open-create phase is reachable any time via the script below.
               </p>
               <p className="gov-lede">
                 Tools that operate as the Safe: <code>tools/multisig-mint-faucet.ts</code>,{" "}
                 <code>tools/create-demo-market.ts</code>, <code>tools/seed-claimable-market.ts</code>.
               </p>
-              <p className="gov-foot">To enable the live demo flow, re-delegate:</p>
+              <p className="gov-foot">Switch to open-create mode (requires Safe co-sign to delegate):</p>
               <pre className="gov-pre">
                 pnpm exec tsx tools/transfer-registry-ownership.ts --to-eoa --confirm
               </pre>

@@ -143,9 +143,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   const pub = createPublicClient({chain: arbitrumSepolia, transport: http(ARB_SEPOLIA_RPC_URL)});
   const wallet = createWalletClient({account, chain: arbitrumSepolia, transport: http(ARB_SEPOLIA_RPC_URL)});
 
-  // Check that the server-side signer actually holds ownership. If we're
-  // back in PRODUCTION MODE (Safe-owned), this route can't help — return
-  // 503 with a pointer to the restoration script.
+  // Check that the server-side signer actually holds ownership. If the
+  // registry is in the GOVERNANCE-CURATED phase (Safe-owned), this
+  // sponsored route can't help — return 503 with a pointer to the
+  // delegation script.
   let owner: Address;
   try {
     owner = (await pub.readContract({
@@ -168,7 +169,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         ok: false,
         error:
           `Sponsored deployment unavailable: MarketRegistry.owner() is ${owner}, ` +
-          `not the deployer EOA. The registry is in PRODUCTION MODE (multisig-owned) — ` +
+          `not the deployer EOA. The registry is in the GOVERNANCE-CURATED phase (multisig-owned) — ` +
           `re-run tools/transfer-registry-ownership.ts --to-eoa --confirm to enable demo deploys.`,
       },
       {status: 503},

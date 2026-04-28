@@ -125,7 +125,7 @@ async function main(): Promise<void> {
   const confirm = args.includes("--confirm");
   if (!mode) {
     console.error("Usage: tsx tools/transfer-registry-ownership.ts <--to-eoa|--to-safe> [--confirm]");
-    console.error("  --to-eoa : Safe-cosigned operational delegation to deployer EOA (demo mode)");
+    console.error("  --to-eoa : Safe-cosigned operational delegation to deployer EOA (open-create phase)");
     console.error("  --to-safe: Single-EOA tx restoring multisig ownership to the Safe");
     console.error("  --confirm: required to actually execute. Omit for a dry-run preview.");
     process.exit(1);

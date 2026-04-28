@@ -1,8 +1,8 @@
 # DarkOdds
 
-> **Confidential prediction market on Arbitrum Sepolia. Public outcomes, public odds, hidden bet sizes. Selective-disclosure payouts via iExec Nox.**
+> **Privacy-permissionless prediction markets on Arbitrum Sepolia. Anyone deploys, anyone bets, odds are public, bet sizes are encrypted. Selective-disclosure payouts via iExec Nox.**
 
-Polymarket but your bet size is hidden. Built on iExec Nox: outcomes and odds are public, your stake is encrypted. When you win, you get a cryptographic receipt you can show your accountant — or keep sealed forever. We solved the proportional payout problem that pure-FHE markets couldn't, by doing the math in TEE plaintext.
+Polymarket without the curation gate or the public stake size. Anyone deploys a market on anything; anyone bets without revealing their position. Built on iExec Nox: outcomes and odds are public, your stake is encrypted. When you win, you get a cryptographic receipt you can show your accountant — or keep sealed forever. We solved the proportional payout problem that pure-FHE markets couldn't, by doing the math in TEE plaintext.
 
 — iExec Vibe Coding Challenge × ChainGPT, DoraHacks
 

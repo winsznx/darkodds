@@ -2,7 +2,7 @@
 //
 // F10b — operator + agent verification for the F10b deliverable surface:
 //
-//   1. GOVERNANCE STATE — MarketRegistry.owner() == deployer EOA (DEMO MODE)
+//   1. GOVERNANCE STATE — MarketRegistry.owner() == deployer EOA (OPEN-CREATE phase)
 //   2. Operational delegation entry in governance_history with
 //      restoration_pending: true
 //   3. /portfolio + /audit + /create routes return 200
@@ -33,7 +33,7 @@
 // Requires:
 //   - dev server at http://localhost:3000
 //   - DEPLOYER_PRIVATE_KEY in .env
-//   - registry in DEMO MODE (run tools/transfer-registry-ownership.ts --to-eoa --confirm first)
+//   - registry in OPEN-CREATE phase (run tools/transfer-registry-ownership.ts --to-eoa --confirm first)
 
 import * as readline from "node:readline/promises";
 import {appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from "node:fs";
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
   const VERIFIER = dep.contracts.ClaimVerifier;
 
   // ─── 1. GOVERNANCE STATE ────────────────────────────────────────────────
-  box("STEP 1 — GOVERNANCE STATE: DEMO MODE (registry owner == deployer EOA)");
+  box("STEP 1 — GOVERNANCE STATE: OPEN-CREATE phase (registry owner == deployer EOA)");
   const owner = (await pub.readContract({
     address: REGISTRY,
     abi: REGISTRY_ABI,
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
   log(`  Safe (production):      ${SAFE}`);
   allChecks.push(
     check(
-      "owner() == deployer EOA (DEMO MODE active)",
+      "owner() == deployer EOA (OPEN-CREATE phase active)",
       owner.toLowerCase() === deployer.toLowerCase(),
       `${owner} == ${deployer}`,
     ),

@@ -336,8 +336,9 @@ export function Hero(): React.ReactElement {
             Private <em>wager</em>.
           </h1>
           <p className="subhead">
-            A prediction market where the odds are public and your bet size is encrypted. Built on iExec Nox +
-            Arbitrum. Selective-disclosure payouts you can show your accountant — or keep sealed forever.
+            A privacy-permissionless prediction market — anyone deploys, anyone bets, odds are public, bet
+            sizes encrypted. Built on iExec Nox + Arbitrum. Selective-disclosure payouts you can show your
+            accountant — or keep sealed forever.
           </p>
           <div className="cta-row">
             <a href="#markets" className="btn btn--primary">

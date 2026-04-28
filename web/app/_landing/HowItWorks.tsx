@@ -1,10 +1,9 @@
 /**
- * Section 3 — "Three steps. Nothing more."
- *
- * Triptych explaining the bettor's path through DarkOdds in plain English.
- * Each step has a step illustration and a PUBLIC/PRIVATE contract row.
+ * Section 3 / 9 — Three steps. Nothing more.
+ * Translated from the design handoff (sec3 in hero.html). Three procedural
+ * columns — Wrap / Bet / Claim — each with its own isometric SVG and a
+ * PUBLIC / PRIVATE contract row. INVARIANT punchline at the foot.
  */
-
 export function HowItWorks(): React.ReactElement {
   return (
     <section className="sec3" data-screen-label="03 How It Works">
@@ -22,6 +21,11 @@ export function HowItWorks(): React.ReactElement {
           private stays private. Math runs in a TEE.
         </p>
       </div>
+
+      <p className="sec3-caption">
+        Anyone can create the market. Anyone can bet. The math runs in the enclave. The privacy is
+        mathematical.
+      </p>
 
       <div className="steps-wrap">
         <div className="steps">
@@ -47,25 +51,24 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-1)" />
 
-                {/* FIX 2: TestUSDC s=44→57 (30% bump). ISO 30°:
-                    cos30*57=49.4, sin30*57=28.5, height=57 */}
-                <g transform="translate(130 178)">
+                {/* TestUSDC cube s=44 */}
+                <g transform="translate(140 168)">
                   <polygon
-                    points="0,0 49.4,-28.5 49.4,-85.5 0,-57"
+                    points="0,0 38.1,-22 38.1,-66 0,-44"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -49.4,-28.5 -49.4,-85.5 0,-57"
+                    points="0,0 -38.1,-22 -38.1,-66 0,-44"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-57 49.4,-85.5 0,-114 -49.4,-85.5"
+                    points="0,-44 38.1,-66 0,-88 -38.1,-66"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -73,66 +76,61 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     TestUSDC
                   </text>
                 </g>
 
-                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
-                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
+                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
                   <line x1="200" y1="125" x2="276" y2="125" />
-                  <polyline points="271,121 280,125 271,129" strokeLinejoin="round" />
+                  <polyline points="270,120 280,125 270,130" strokeLinejoin="round" />
                 </g>
 
-                {/* FIX 2: cUSDC s=56→73 (30% bump). ISO 30°:
-                    cos30*73=63.2, sin30*73=36.5, height=73 */}
-                <g transform="translate(350 182)">
+                {/* cUSDC cube s=56 with redaction */}
+                <g transform="translate(340 174)">
                   <polygon
-                    points="0,0 63.2,-36.5 63.2,-109.5 0,-73"
+                    points="0,0 48.5,-28 48.5,-84 0,-56"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -63.2,-36.5 -63.2,-109.5 0,-73"
+                    points="0,0 -48.5,-28 -48.5,-84 0,-56"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-73 63.2,-109.5 0,-146 -63.2,-109.5"
+                    points="0,-56 48.5,-84 0,-112 -48.5,-84"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
-                  {/* Small redaction bar on top face */}
                   <rect
-                    x="-28"
-                    y="-116"
-                    width="56"
-                    height="10"
-                    fill="var(--redaction)"
-                    transform="skewY(-30) translate(0 14)"
+                    x="-22"
+                    y="-90"
+                    width="44"
+                    height="8"
+                    fill="#000000"
+                    transform="skewY(-30) translate(0 12)"
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     cUSDC
                   </text>
@@ -173,78 +171,71 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-2)" />
 
-                {/* FIX 2: cUSDC s=44→57 (30% bump). ISO 30°:
-                    cos30*57=49.4, sin30*57=28.5, height=57 */}
-                <g transform="translate(120 180)">
+                <g transform="translate(130 170)">
                   <polygon
-                    points="0,0 49.4,-28.5 49.4,-85.5 0,-57"
+                    points="0,0 38.1,-22 38.1,-66 0,-44"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -49.4,-28.5 -49.4,-85.5 0,-57"
+                    points="0,0 -38.1,-22 -38.1,-66 0,-44"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-57 49.4,-85.5 0,-114 -49.4,-85.5"
+                    points="0,-44 38.1,-66 0,-88 -38.1,-66"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
-                  {/* Small redaction bar on top face */}
                   <rect
-                    x="-22"
-                    y="-92"
-                    width="44"
-                    height="8"
-                    fill="var(--redaction)"
-                    transform="skewY(-30) translate(0 12)"
+                    x="-17"
+                    y="-70"
+                    width="34"
+                    height="6"
+                    fill="#000000"
+                    transform="skewY(-30) translate(0 9)"
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     cUSDC
                   </text>
                 </g>
 
-                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
-                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
+                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
                   <line x1="190" y1="125" x2="266" y2="125" />
-                  <polyline points="261,121 270,125 261,129" strokeLinejoin="round" />
+                  <polyline points="260,120 270,125 260,130" strokeLinejoin="round" />
                 </g>
 
-                {/* FIX 2: MARKET s=64→83 (30% bump). ISO 30°:
-                    cos30*83=71.9, sin30*83=41.5, height=83 */}
-                <g transform="translate(350 190)">
+                <g transform="translate(350 180)">
                   <polygon
-                    points="0,0 71.9,-41.5 71.9,-124.5 0,-83"
+                    points="0,0 55.4,-32 55.4,-96 0,-64"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -71.9,-41.5 -71.9,-124.5 0,-83"
+                    points="0,0 -55.4,-32 -55.4,-96 0,-64"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-83 71.9,-124.5 0,-166 -71.9,-124.5"
+                    points="0,-64 55.4,-96 0,-128 -55.4,-96"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -252,47 +243,39 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     MARKET
                   </text>
                 </g>
 
-                {/* FIX 2: "BET" redaction bar — 16px tall, partially overlaps
-                    top of MARKET cube, slight -2° rotation.
-                    MARKET cube top-face apex is at (350, 190-166) = (350, 24).
-                    Bar sits just above top face, overlapping ~30% into it. */}
-                <g transform="translate(350 38) rotate(-2)">
-                  <rect x="-36" y="-8" width="72" height="16" fill="var(--redaction)" />
+                <g transform="translate(350 50) rotate(-2)">
+                  <rect x="-30" y="-7" width="60" height="14" fill="#000000" />
                   <text
                     x="0"
-                    y="4"
+                    y="3"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="9"
-                    letterSpacing="0.1em"
-                    fill="var(--bone, #f5f1e8)"
-                    style={{textTransform: "uppercase"}}
+                    fontSize="8"
+                    letterSpacing="1"
+                    fill="#F5F1E8"
                   >
                     BET
                   </text>
                 </g>
-                {/* Dashed connector from BET bar to MARKET cube top */}
                 <line
                   x1="350"
-                  y1="46"
+                  y1="64"
                   x2="350"
-                  y2="66"
+                  y2="84"
                   stroke="var(--illo-stroke)"
-                  strokeWidth="1.5"
-                  strokeDasharray="4 3"
-                  opacity="0.8"
+                  strokeWidth="1"
+                  strokeDasharray="3 3"
                 />
 
                 <text
@@ -342,25 +325,23 @@ export function HowItWorks(): React.ReactElement {
                 </defs>
                 <rect width="480" height="240" fill="url(#g3-3)" />
 
-                {/* FIX 2: MARKET s=52→68 (30% bump). ISO 30°:
-                    cos30*68=58.9, sin30*68=34, height=68 */}
-                <g transform="translate(125 170)">
+                <g transform="translate(135 158)">
                   <polygon
-                    points="0,0 58.9,-34 58.9,-102 0,-68"
+                    points="0,0 45,-26 45,-78 0,-52"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -58.9,-34 -58.9,-102 0,-68"
+                    points="0,0 -45,-26 -45,-78 0,-52"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-68 58.9,-102 0,-136 -58.9,-102"
+                    points="0,-52 45,-78 0,-104 -45,-78"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
@@ -368,111 +349,111 @@ export function HowItWorks(): React.ReactElement {
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     MARKET
                   </text>
                   <text
                     x="0"
-                    y="26"
+                    y="34"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
                     fontSize="9"
-                    letterSpacing="0.18em"
+                    letterSpacing="1.6"
                     fill="var(--illo-stroke)"
                     opacity="0.6"
-                    style={{textTransform: "uppercase"}}
                   >
                     RESOLVED
                   </text>
                 </g>
 
-                {/* FIX 2: Arrow — 1.5px stroke, hairline arrowhead, ink 80% opacity */}
-                <g stroke="var(--illo-stroke)" strokeWidth="1.5" fill="none" opacity="0.8">
-                  <line x1="205" y1="115" x2="276" y2="115" />
-                  <polyline points="271,111 280,115 271,119" strokeLinejoin="round" />
+                <g stroke="var(--illo-stroke)" strokeWidth="1" fill="none">
+                  <line x1="200" y1="115" x2="276" y2="115" />
+                  <polyline points="270,110 280,115 270,120" strokeLinejoin="round" />
                 </g>
 
-                {/* FIX 2: PAYOUT s=52→68 (30% bump). ISO 30°:
-                    cos30*68=58.9, sin30*68=34, height=68 */}
-                <g transform="translate(355 170)">
+                <g transform="translate(345 158)">
                   <polygon
-                    points="0,0 58.9,-34 58.9,-102 0,-68"
+                    points="0,0 45,-26 45,-78 0,-52"
                     fill="var(--illo-fill-r)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,0 -58.9,-34 -58.9,-102 0,-68"
+                    points="0,0 -45,-26 -45,-78 0,-52"
                     fill="var(--illo-fill-l)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
                   <polygon
-                    points="0,-68 58.9,-102 0,-136 -58.9,-102"
+                    points="0,-52 45,-78 0,-104 -45,-78"
                     fill="var(--illo-fill-t)"
                     stroke="var(--illo-stroke)"
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   />
-                  {/* Redaction bar on top face */}
                   <rect
-                    x="-26"
-                    y="-108"
-                    width="52"
-                    height="9"
-                    fill="var(--redaction)"
-                    transform="skewY(-30) translate(0 14)"
+                    x="-20"
+                    y="-82"
+                    width="40"
+                    height="7"
+                    fill="#000000"
+                    transform="skewY(-30) translate(0 11)"
                   />
                   <text
                     x="0"
-                    y="12"
+                    y="20"
                     textAnchor="middle"
                     fontFamily="'Geist Mono', monospace"
-                    fontSize="11"
-                    letterSpacing="0.1em"
+                    fontSize="10"
+                    letterSpacing="0.8"
                     fill="var(--illo-stroke)"
-                    style={{textTransform: "uppercase"}}
                   >
                     PAYOUT
                   </text>
                 </g>
 
-                {/* FIX 2: ATTESTATION // SELECTIVE-DISCLOSURE stamp.
-                    Positioned with 24px clearance from cubes and column edge.
-                    Cubes end at y=182 (base 170 + 12px label). Stamp at y=170+24=194 min.
-                    Using y=196. Narrowed to avoid clipping column edges. */}
-                <g transform="translate(240 196) rotate(-2)">
+                <g transform="translate(240 210) rotate(-2)">
                   <rect
-                    x="-84"
-                    y="-10"
-                    width="168"
-                    height="20"
+                    x="-90"
+                    y="-12"
+                    width="180"
+                    height="22"
                     fill="none"
                     stroke="var(--redacted-red)"
                     strokeWidth="1.5"
                   />
                   <text
                     x="0"
-                    y="4"
+                    y="3"
                     textAnchor="middle"
                     fontFamily="'Special Elite', monospace"
-                    fontSize="9"
-                    letterSpacing="0.12em"
+                    fontSize="10"
+                    letterSpacing="1.4"
                     fill="var(--redacted-red)"
-                    style={{textTransform: "uppercase"}}
                   >
                     ATTESTATION // SELECTIVE-DISCLOSURE
                   </text>
                 </g>
+                <text
+                  x="240"
+                  y="234"
+                  textAnchor="middle"
+                  fontFamily="'Geist Mono', monospace"
+                  fontSize="8"
+                  letterSpacing="1.2"
+                  fill="var(--illo-stroke)"
+                  opacity="0.6"
+                >
+                  OPTIONAL — RECIPIENT-BOUND OR BEARER MODE
+                </text>
               </svg>
             </div>
 
@@ -489,7 +470,7 @@ export function HowItWorks(): React.ReactElement {
 
         <div className="sec3-foot">
           <div className="pl">INVARIANT</div>
-          <div className="pm">the math runs in the enclave.</div>
+          <div className="pm">the enclave keeps the wagers.</div>
           <div className="pr">EVERY TIME.</div>
         </div>
       </div>

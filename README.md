@@ -234,4 +234,4 @@ darkodds/
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE) (forthcoming) — the contracts and frontend are open for fork; the brand `DarkOdds`, the wordmark, and the case-file visual language are reserved.
+MIT. See [`LICENSE`](./LICENSE) — the contracts and frontend are open for fork; the brand `DarkOdds`, the wordmark, and the case-file visual language are reserved.

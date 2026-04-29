@@ -44,3 +44,9 @@ subgraph/generated/
 
 # verify-backend run output (timestamped transcripts, attestations, balance logs)
 verification-output/
+
+# admin-resolve CLI run history — contains salts that are sensitive
+# pre-reveal (front-runnable). Post-reveal they're public via on-chain
+# logs anyway, so the local file is just for the operator's audit trail
+# + cross-machine portability if they split commit and reveal.
+tools/admin-resolve-history.json

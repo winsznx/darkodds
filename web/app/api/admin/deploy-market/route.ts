@@ -7,6 +7,14 @@
  * and submits the createMarket tx with the same `getArbSepoliaFeeOverrides`
  * fee discipline used by the bet/claim flows.
  *
+ * After createMarket, the route ALSO performs a Safe-cosigned
+ * `ResolutionOracle.setAdapter(marketId, adapterFor(oracleType))` so the
+ * new market is wired to the correct adapter before its expiry — closing
+ * the gap surfaced by docs/RESOLUTION_AUDIT_2026-04-29.md (markets #16-21
+ * were deployed without setAdapter and got stuck in Open). Safe cosign
+ * requires both DEPLOYER_PRIVATE_KEY and MULTISIG_SIGNER_2_PK on the
+ * server. Trade-off documented in KNOWN_LIMITATIONS.
+ *
  * Why this exists:
  *   `MarketRegistry.createMarket(...)` is `onlyOwner`. After F10b's
  *   operational delegation, the owner is the deployer EOA — not the
@@ -17,8 +25,9 @@
  *   tx land, and the operational delegation actually pays off.
  *
  * Sponsorship trade-offs:
- *   - Cost on us (deployer EOA pays gas — ~0.0001 ETH per market on Arb
- *     Sepolia, negligible for the judging window)
+ *   - Cost on us (deployer EOA pays gas + Safe cosign for setAdapter,
+ *     ~0.0003 ETH per market on Arb Sepolia, negligible for the judging
+ *     window)
  *   - Anyone can spam markets via this route. Mitigated by 60s rate limit
  *     per origin IP and by validation: question ≤ 200 chars, criteria ≤
  *     500 chars, expiry must be > now.
@@ -29,12 +38,21 @@
  * the deployer key no longer holds ownership.
  *
  * Request:  { question, resolutionCriteria, oracleType, expiryTs, protocolFeeBps }
- * Response: { ok: true, marketId, marketAddress, txHash } | { ok: false, error }
+ * Response: { ok: true, marketId, marketAddress, txHash, setAdapterTxHash } | { ok: false, error }
  */
 
 import {NextResponse} from "next/server";
 
-import {createPublicClient, createWalletClient, decodeEventLog, http, type Address, type Hex} from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  decodeEventLog,
+  encodeFunctionData,
+  http,
+  parseAbi,
+  type Address,
+  type Hex,
+} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {arbitrumSepolia} from "viem/chains";
 
@@ -42,6 +60,24 @@ import {ARB_SEPOLIA_RPC_URL} from "@/lib/chains";
 import {addresses} from "@/lib/contracts/addresses";
 import {getArbSepoliaFeeOverrides} from "@/lib/contracts/fees";
 import {marketRegistryAbi} from "@/lib/contracts/generated";
+
+/// Vercel default for Node API routes is 10s on Hobby, 60s on Pro.
+/// Safe-cosigned setAdapter takes 4-8s on top of the createMarket round-trip,
+/// so the combined flow can run 12-20s. Pin to 60 to ride either tier.
+export const maxDuration = 60;
+
+const RES_ORACLE_ABI = parseAbi(["function setAdapter(uint256 marketId, address adapter) external"]);
+
+function adapterForOracleType(oracleType: 0 | 1 | 2): Address {
+  switch (oracleType) {
+    case 0:
+      return addresses.AdminOracle;
+    case 1:
+      return addresses.ChainlinkPriceOracle;
+    case 2:
+      return addresses.PreResolvedOracle;
+  }
+}
 
 interface DeployRequest {
   question?: unknown;
@@ -242,11 +278,69 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
+  // Safe-cosigned ResolutionOracle.setAdapter — closes the routing gap that
+  // left markets #16-21 unresolvable. ResolutionOracle is Safe-owned, so this
+  // requires 2-of-3 cosign. Both signing keys must be on the server (note
+  // the trade-off in KNOWN_LIMITATIONS — the multisig is reduced to the
+  // server's effective control during the live-judging window).
+  let setAdapterTxHash: Hex | null = null;
+  let setAdapterError: string | null = null;
+  const signer2Key = process.env.MULTISIG_SIGNER_2_PK?.trim() as Hex | undefined;
+  if (!signer2Key || !signer2Key.startsWith("0x")) {
+    setAdapterError =
+      "MULTISIG_SIGNER_2_PK not configured on server — adapter not auto-wired. Run tools/admin-resolve.ts to wire after the fact.";
+  } else {
+    const adapter = adapterForOracleType(parsed.oracleType);
+    try {
+      // createRequire keeps @safe-global/protocol-kit out of TS's static
+      // type graph entirely — direct or even dynamic `import` of that
+      // package widens viem's Address type from `0x${string}` to `string`
+      // app-wide, breaking unrelated wagmi-typed components (e.g.
+      // FaucetModal). require() is a string-driven runtime resolution that
+      // TS doesn't follow at compile time.
+      const {createRequire} = await import("node:module");
+      const nodeRequire = createRequire(import.meta.url);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SafeMod = nodeRequire("@safe-global/protocol-kit") as any;
+      const Safe = SafeMod.default ?? SafeMod;
+      const sdk1 = await Safe.init({
+        provider: ARB_SEPOLIA_RPC_URL,
+        signer: signerKey,
+        safeAddress: addresses.Safe,
+      });
+      const sdk2 = await Safe.init({
+        provider: ARB_SEPOLIA_RPC_URL,
+        signer: signer2Key,
+        safeAddress: addresses.Safe,
+      });
+      const data = encodeFunctionData({
+        abi: RES_ORACLE_ABI,
+        functionName: "setAdapter",
+        args: [marketId, adapter],
+      });
+      let safeTx = await sdk1.createTransaction({
+        transactions: [{to: addresses.ResolutionOracle, value: "0", data}],
+      });
+      safeTx = await sdk1.signTransaction(safeTx);
+      safeTx = await sdk2.signTransaction(safeTx);
+      const exec = await sdk1.executeTransaction(safeTx);
+      const safeHash = (exec.hash ?? exec.transactionResponse?.hash) as Hex | undefined;
+      if (!safeHash) throw new Error("Safe exec returned no hash");
+      const safeRc = await pub.waitForTransactionReceipt({hash: safeHash});
+      if (safeRc.status !== "success") throw new Error(`setAdapter reverted: ${safeHash}`);
+      setAdapterTxHash = safeHash;
+    } catch (err) {
+      setAdapterError = `setAdapter cosign failed: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     marketId: marketId.toString(),
     marketAddress,
     txHash,
     sponsored: true,
+    setAdapterTxHash,
+    setAdapterError,
   });
 }

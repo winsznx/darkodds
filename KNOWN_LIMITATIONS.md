@@ -517,3 +517,37 @@ the full `placeBet → resolve → claim → attestation → verify` lifecycle. 
 claim-flow verifier (`tools/verify-claim-flow.ts`) is roadmapped to catch
 regressions like the F10b seed-script breakage (see DRIFT_LOG 2026-04-29).
 Tracked for v1.1.
+
+### Resolution UI scope
+
+AdminOracle markets are resolvable via `tools/admin-resolve.ts` CLI in v1.
+The CLI handles the full sequence: setAdapter (preflight, if unwired) →
+commit → 60s reveal-delay → reveal → resolveOracle → freezePool →
+ClaimWindow. A web UI for commit-reveal is roadmapped to v1.1 with the
+operational dashboard at `/admin/resolve`.
+
+ChainlinkPriceOracle is wired but skipped on testnet — Arb Sepolia
+doesn't publish data feeds (verified against the smartcontractkit/
+hardhat-chainlink registry); the `sequencerFeed` constructor arg is
+`address(0)` so the sequencer-uptime check is bypassed. Mainnet deploys
+use the canonical Arbitrum One aggregators. Markets with `oracleType=1`
+on testnet auto-invalidate at expiry and refund all bettors — intentional
+per PRD §0.5 "no mocks". See
+[docs/RESOLUTION_AUDIT_2026-04-29.md](./docs/RESOLUTION_AUDIT_2026-04-29.md)
+for the full inventory.
+
+PreResolvedOracle is fully wired and is the path exercised by
+`tools/seed-claimable-market.ts` and the demo recording.
+
+### `/api/admin/deploy-market` holds both Safe signing keys server-side
+
+The sponsored deploy route auto-wires the per-market adapter via
+`ResolutionOracle.setAdapter(marketId, adapterFor(oracleType))` after
+`createMarket`. ResolutionOracle is Safe-owned, so this requires 2-of-3
+Safe cosign — both `DEPLOYER_PRIVATE_KEY` and `MULTISIG_SIGNER_2_PK`
+must be on the server. During the live-judging window this reduces
+the multisig to effectively single-sig at the Vercel layer (anyone
+with project access can sign as both signers). Restoration is one
+line: rotate signer 2's key in the Safe + remove from server env.
+Tracked for post-judging restoration alongside the
+`tools/transfer-registry-ownership.ts --to-safe` step.

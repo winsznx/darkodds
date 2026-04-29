@@ -209,6 +209,42 @@ Verified addresses canonical at [`contracts/deployments/arb-sepolia.json`](./con
 
 ---
 
+## Resolution
+
+Each DarkOdds market is created with one of three `oracleType` values, routed through `ResolutionOracle.setAdapter(marketId, adapter)` to a typed adapter. After F10b's auto-wire patch, `/api/admin/deploy-market` cosigns `setAdapter` immediately after `createMarket` so adapters are pre-routed without operator intervention. End-to-end inventory at [`docs/RESOLUTION_AUDIT_2026-04-29.md`](./docs/RESOLUTION_AUDIT_2026-04-29.md).
+
+### `oracleType=1` — Chainlink price feed
+
+On **Arbitrum One mainnet**, configure with the canonical aggregator (e.g. BTC/USD at `0x6ce185860a4963106506C203335A2910413708e9` — verify via [Chainlink's Arbitrum docs](https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum) before deploy). The adapter performs the full safety chain: sequencer uptime check (`SequencerUptimeFeed` at `0xFdB631F5EE196F0ed6FAa767959853A9F217697D`), heartbeat freshness, round completeness, non-negative answer guard, then the threshold comparison.
+
+On **Arbitrum Sepolia**, no price feed exists (verified against the [smartcontractkit/hardhat-chainlink registry](https://github.com/smartcontractkit/hardhat-chainlink)). The contract was deployed with `sequencerFeed = address(0)` so the sequencer check is bypassed; markets with `oracleType=1` auto-invalidate at expiry and refund all bettors. This is intentional per PRD §0.5 "no mocks."
+
+### `oracleType=0` — Admin commit-reveal
+
+Resolution flow:
+
+```bash
+pnpm tsx tools/admin-resolve.ts --market=<N> --outcome=YES|NO|INVALID
+```
+
+The CLI handles the full sequence in one run:
+
+1. **Preflight `setAdapter`** — if `ResolutionOracle.adapterOf(marketId)` is unwired (zero address), Safe-cosigns the adapter wiring before commit. Recovers markets deployed before the auto-wire patch.
+2. **Commit** — Safe-cosigned `AdminOracle.commit(marketId, keccak256(abi.encode(outcome, salt)))`. Salt is auto-generated and printed to stdout (or operator-supplied via `--salt=`).
+3. **REVEAL_DELAY** — visible 60s countdown (PRD §3.4 MEV-mitigation window).
+4. **Reveal** — Safe-cosigned `AdminOracle.reveal(marketId, outcome, salt)`.
+5. **Resolve** — direct EOA `Market.resolveOracle()`.
+6. **freezePool** if outcome is YES/NO — Nox SDK `publicDecrypt` of the published pool handles, then `Market.freezePool(yesProof, noProof)` lands the market in `ClaimWindow`.
+7. **Audit trail** — `{marketId, outcome, salt, commit/reveal/resolve/freeze tx hashes, finalState}` appended to `tools/admin-resolve-history.json`.
+
+Web UI for commit-reveal is roadmapped to v1.1 at `/admin/resolve/[marketId]`.
+
+### `oracleType=2` — PreResolved (demo path)
+
+Used for testnet demo markets and historical questions with deterministic outcomes. The outcome is set at oracle deployment via `PreResolvedOracle.configure(marketId, outcome)` and `resolve()` returns it immediately. Suitable for demo recording — `tools/seed-claimable-market.ts --stage=claimable` walks a complete lifecycle in ~3 minutes. Not suitable for user-facing prediction questions; the YES/NO answer is hard-coded at deploy.
+
+---
+
 ## Hard rules (from PRD §0.5)
 
 - No mocked data anywhere — demo runs against real Arbitrum Sepolia and real Nox handles

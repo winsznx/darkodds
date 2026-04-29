@@ -1,6 +1,6 @@
 "use client";
 
-import {Search} from "lucide-react";
+import {Search, User} from "lucide-react";
 
 export type SortKey = "volume" | "newest" | "endingSoon";
 export type StatusKey = "all" | "active" | "resolved";
@@ -23,10 +23,28 @@ interface MarketsFilterProps {
   /** Categories pulled from loaded Polymarket data, filtered through the
    *  DOMAIN_TAGS whitelist. Always includes "Private" for the DarkOdds side. */
   availableCategories: string[];
+  /** MINE filter state. Toggle is hidden when `mineAvailable` is false
+   *  (wallet not connected, or connected wallet has zero created markets). */
+  mine: boolean;
+  onMine: (v: boolean) => void;
+  mineAvailable: boolean;
 }
 
 export function MarketsFilter(props: MarketsFilterProps): React.ReactElement {
-  const {search, onSearch, sort, onSort, status, onStatus, category, onCategory, availableCategories} = props;
+  const {
+    search,
+    onSearch,
+    sort,
+    onSort,
+    status,
+    onStatus,
+    category,
+    onCategory,
+    availableCategories,
+    mine,
+    onMine,
+    mineAvailable,
+  } = props;
 
   return (
     <div className="markets-filter" role="region" aria-label="Filters">
@@ -91,6 +109,18 @@ export function MarketsFilter(props: MarketsFilterProps): React.ReactElement {
           <option value="endingSoon">{SORT_LABELS.endingSoon}</option>
         </select>
       </div>
+
+      {mineAvailable && (
+        <button
+          type="button"
+          className="filter-mine"
+          data-active={mine}
+          onClick={() => onMine(!mine)}
+          aria-pressed={mine}
+        >
+          <User size={11} aria-hidden /> MINE
+        </button>
+      )}
     </div>
   );
 }

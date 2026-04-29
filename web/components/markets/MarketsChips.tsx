@@ -20,6 +20,8 @@ interface MarketsChipsProps {
   onClearCategory: () => void;
   sort: SortKey;
   onClearSort: () => void;
+  mine: boolean;
+  onClearMine: () => void;
 }
 
 export function MarketsChips({
@@ -31,6 +33,8 @@ export function MarketsChips({
   onClearCategory,
   sort,
   onClearSort,
+  mine,
+  onClearMine,
 }: MarketsChipsProps): React.ReactElement | null {
   const chips: Array<{label: string; onClear: () => void; key: string}> = [];
 
@@ -49,6 +53,9 @@ export function MarketsChips({
   }
   if (sort !== "volume") {
     chips.push({key: "sort", label: `BY ${SORT_LABELS[sort].toUpperCase()}`, onClear: onClearSort});
+  }
+  if (mine) {
+    chips.push({key: "mine", label: "MINE", onClear: onClearMine});
   }
 
   if (chips.length === 0) return null;

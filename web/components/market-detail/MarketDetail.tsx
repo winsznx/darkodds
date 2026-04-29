@@ -11,8 +11,11 @@ import type {DarkOddsMarketDetail} from "@/lib/darkodds/single-market";
 
 import {BetModal} from "@/components/bet/BetModal";
 import {PoolSparkline, buildStubPoolSeries} from "@/components/charts/PoolSparkline";
+import {PostDeployBanner} from "@/components/create/PostDeployBanner";
 import {BatchTimer} from "@/components/primitives/BatchTimer";
 import {DarkOddsState} from "@/lib/darkodds/types";
+import {localCreatedIdSet} from "@/lib/markets/created-markets";
+import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
 
 import {BetPanel} from "./BetPanel";
 import {EventLog} from "./EventLog";
@@ -38,6 +41,51 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
   // Captured-at-mount; the sparkline stub is deterministic, so a stable
   // anchor keeps the curve shape from flickering across re-renders.
   const [mountSec] = useState(() => Math.floor(Date.now() / 1000));
+
+  // Post-deploy banner — visible when /markets/[id]?just-created=1.
+  // Window-side query-param read keeps this page prerenderable (no
+  // useSearchParams Suspense boundary needed). Same pattern as the
+  // portfolio preview-claim-queue toggle.
+  const [justCreated, setJustCreated] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("just-created") !== "1") return;
+    const t = setTimeout(() => setJustCreated(true), 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  // "Created by you" badge — merge localStorage (instant) + server ledger
+  // (authoritative) into a single boolean for this market id. Same merge
+  // discipline as MarketsLayout uses for the MINE filter.
+  const connectedAddress = useConnectedAddress();
+  const [createdByMe, setCreatedByMe] = useState(false);
+  useEffect(() => {
+    const local = localCreatedIdSet();
+    if (local.has(market.id.toString())) {
+      const t = setTimeout(() => setCreatedByMe(true), 0);
+      return () => clearTimeout(t);
+    }
+  }, [market.id]);
+  useEffect(() => {
+    if (!connectedAddress) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/markets/created-by/${connectedAddress}`, {cache: "no-store"});
+        const json = (await res.json()) as {ok: boolean; marketIds?: string[]};
+        if (cancelled) return;
+        if (json.ok && Array.isArray(json.marketIds) && json.marketIds.includes(market.id.toString())) {
+          setCreatedByMe(true);
+        }
+      } catch {
+        // Localstorage path stays as the only source if the server fetch fails.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectedAddress, market.id]);
 
   // Per-user bet handles. Server-side rendered without a connected user, so
   // we re-fetch client-side once Privy resolves the connected address. Keeps
@@ -109,12 +157,15 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
   return (
     <div className="md-layout">
       <div className="md-main">
+        {justCreated && <PostDeployBanner marketId={market.id.toString()} question={market.question} />}
+
         <MarketHeader
           id={market.id}
           question={market.question}
           state={market.state}
           expiryTs={market.expiryTs}
           isResolved={market.isResolved}
+          createdByMe={createdByMe}
         />
 
         {resumeAvailable && (

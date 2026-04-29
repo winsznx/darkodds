@@ -551,3 +551,27 @@ with project access can sign as both signers). Restoration is one
 line: rotate signer 2's key in the Safe + remove from server env.
 Tracked for post-judging restoration alongside the
 `tools/transfer-registry-ownership.ts --to-safe` step.
+
+### Created-by ledger uses Vercel KV when configured, /tmp file fallback otherwise
+
+The MINE filter on `/markets` is powered by `/api/markets/created-by/[address]`,
+which reads from a server-side `creator → marketIds` ledger written by
+`/api/admin/deploy-market` on every successful sponsored deploy. Backend
+selection mirrors the airdrop-history ledger:
+
+- **Vercel KV** when `KV_REST_API_URL` + `KV_REST_API_TOKEN` are set
+  (auto-injected by Vercel's KV integration). Durable across deploys.
+- **`/tmp/created-by-ledger.json`** fallback. Per-instance ephemeral on
+  Vercel — does NOT persist across deploy cycles. Production deploys
+  should enable Vercel KV.
+
+Self-signed markets — when the deployer EOA self-deploys via `/create`
+instead of the sponsored API path — are NOT recorded in the ledger.
+That's intentional: only sponsored deploys representing user-initiated
+creation are tracked. The deployer doesn't need MINE badges for their
+own markets, and self-sign goes around the API entirely.
+
+Browser-side localStorage at `darkodds.created-markets` is the fast path
+for the MINE filter (instant flag, no network roundtrip) but only on the
+device the deploy happened on. The server ledger is the authoritative
+path that survives clears + device switches.

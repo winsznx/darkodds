@@ -290,6 +290,55 @@
   text-transform: uppercase;
 }
 
+/* ─── CREATED BY YOU badge — case-file row pill in declassified-amber.
+     Visual rhyme with the OPEN-CREATE governance state badge: amber
+     means "permissionless protocol mode, you participated in this."
+     Distinct from the redacted-red CLASSIFIED stamp (private/encrypted). */
+.mc-mine-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--declassified-amber, #b8a356);
+  background: transparent;
+  color: var(--declassified-amber, #b8a356);
+  white-space: nowrap;
+  line-height: 1.4;
+  margin-left: 6px;
+}
+
+/* ─── MINE filter toggle button ──────────────────────────── */
+.filter-mine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px 6px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 0;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.filter-mine:hover {
+  background: var(--hairline);
+}
+.filter-mine[data-active="true"] {
+  background: var(--declassified-amber, #b8a356);
+  color: var(--ink, #1a1410);
+  border-color: var(--declassified-amber, #b8a356);
+}
+
 /* ─── category pill (PRIVATE / CRYPTO / POLITICS / etc.) ───── */
 .mc-cat-pill {
   display: inline-flex;

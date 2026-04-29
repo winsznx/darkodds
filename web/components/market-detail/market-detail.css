@@ -27,6 +27,84 @@
   overflow-y: auto;
 }
 
+/* ─── Post-deploy banner — appears on ?just-created=1; auto-dismisses
+     on first scroll, first click anywhere outside the banner, or 30s
+     timeout. ─────────────────────────────────────────────────────── */
+.post-deploy-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--declassified-amber, #b8a356);
+  background: var(--bg);
+  position: relative;
+  flex-wrap: wrap;
+}
+.post-deploy-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.post-deploy-banner-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+.post-deploy-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.post-deploy-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px 6px;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0;
+}
+.post-deploy-banner-cta:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+.post-deploy-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.post-deploy-banner-dismiss:hover {
+  background: var(--hairline);
+  color: var(--fg);
+}
+@media (max-width: 720px) {
+  .post-deploy-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .post-deploy-banner-actions {
+    justify-content: flex-end;
+  }
+}
+
 /* ─── Header ───────────────────────────────────────────────── */
 .md-header {
   display: flex;

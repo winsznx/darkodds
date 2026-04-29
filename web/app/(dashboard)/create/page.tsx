@@ -13,6 +13,7 @@ import {txLink} from "@/lib/chains";
 import {addresses} from "@/lib/contracts/addresses";
 import {marketRegistryAbi} from "@/lib/contracts/generated";
 import {getArbSepoliaFeeOverrides} from "@/lib/contracts/fees";
+import {recordCreatedMarketLocal} from "@/lib/markets/created-markets";
 import {useBetClients} from "@/lib/nox/client-hook";
 import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
 import type {GenerateMarketParams} from "@/app/api/chaingpt/generate-market/route";
@@ -186,15 +187,22 @@ function CreateInner(): React.ReactElement {
     }));
   }, [deploy.route, txSuccess, receipt]);
 
-  // After we land in `success` with a marketId, navigate to the new detail
-  // page. Brief delay so the success stamp is visible first.
+  // After we land in `success` with a marketId: persist to localStorage
+  // (the fast path for the MINE filter on the same device) and navigate to
+  // the new detail page with ?just-created=1 so the post-deploy banner
+  // renders. Brief delay so the success stamp is visible first.
   useEffect(() => {
-    if (deploy.phase !== "success") return;
+    if (deploy.phase !== "success" || !deploy.marketId) return;
+    recordCreatedMarketLocal({
+      id: deploy.marketId,
+      deployedAt: Date.now(),
+      question,
+    });
     const t = setTimeout(() => {
-      router.push(deploy.marketId ? `/markets/${deploy.marketId}` : "/markets");
+      router.push(`/markets/${deploy.marketId}?just-created=1`);
     }, 1500);
     return () => clearTimeout(t);
-  }, [deploy.phase, deploy.marketId, router]);
+  }, [deploy.phase, deploy.marketId, question, router]);
 
   async function handleGenerate(): Promise<void> {
     if (!prompt.trim()) return;
@@ -271,7 +279,9 @@ function CreateInner(): React.ReactElement {
       return;
     }
 
-    // Sponsored path — server signs with the deployer EOA.
+    // Sponsored path — server signs with the deployer EOA. Pass `creator`
+    // (the connected wallet address) so the server-side ledger can power
+    // the MINE filter on /markets across browsers + devices.
     try {
       const res = await fetch("/api/admin/deploy-market", {
         method: "POST",
@@ -282,6 +292,7 @@ function CreateInner(): React.ReactElement {
           oracleType,
           expiryTs,
           protocolFeeBps: feeBps,
+          creator: connectedAddress,
         }),
       });
       const json = (await res.json()) as

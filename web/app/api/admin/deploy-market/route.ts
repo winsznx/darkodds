@@ -60,6 +60,7 @@ import {ARB_SEPOLIA_RPC_URL} from "@/lib/chains";
 import {addresses} from "@/lib/contracts/addresses";
 import {getArbSepoliaFeeOverrides} from "@/lib/contracts/fees";
 import {marketRegistryAbi} from "@/lib/contracts/generated";
+import {recordCreator} from "@/lib/markets/created-ledger";
 
 /// Vercel default for Node API routes is 10s on Hobby, 60s on Pro.
 /// Safe-cosigned setAdapter takes 4-8s on top of the createMarket round-trip,
@@ -85,6 +86,10 @@ interface DeployRequest {
   oracleType?: unknown;
   expiryTs?: unknown;
   protocolFeeBps?: unknown;
+  /** Optional connected-wallet address of the user clicking DEPLOY MARKET.
+   *  Recorded in the created-by ledger so the MINE filter on /markets can
+   *  surface this market for that user across browsers / devices. */
+  creator?: unknown;
 }
 
 interface ParsedRequest {
@@ -93,6 +98,7 @@ interface ParsedRequest {
   oracleType: 0 | 1 | 2;
   expiryTs: bigint;
   protocolFeeBps: bigint;
+  creator: Address | null;
 }
 
 const QUESTION_MAX = 200;
@@ -135,12 +141,19 @@ function parseBody(body: DeployRequest): ParsedRequest | string {
   }
   const feeBps = BigInt(body.protocolFeeBps);
   if (feeBps < FEE_MIN || feeBps > FEE_MAX) return `protocolFeeBps must be in [${FEE_MIN}, ${FEE_MAX}]`;
+  // creator is optional — drop silently if malformed rather than rejecting the
+  // whole deploy request. Only well-formed addresses make it into the ledger.
+  let creator: Address | null = null;
+  if (typeof body.creator === "string" && /^0x[0-9a-fA-F]{40}$/.test(body.creator)) {
+    creator = body.creator as Address;
+  }
   return {
     question: body.question.trim(),
     resolutionCriteria: body.resolutionCriteria.trim(),
     oracleType: body.oracleType as 0 | 1 | 2,
     expiryTs,
     protocolFeeBps: feeBps,
+    creator,
   };
 }
 
@@ -331,6 +344,20 @@ export async function POST(req: Request): Promise<NextResponse> {
       setAdapterTxHash = safeHash;
     } catch (err) {
       setAdapterError = `setAdapter cosign failed: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+
+  // Record the creator (best-effort — never blocks the success response).
+  // Self-signed deploys never reach this route, so the ledger only ever
+  // grows from genuinely user-initiated sponsored creations. Skipped when
+  // the request didn't supply a creator (older client, or call from a tool).
+  if (parsed.creator) {
+    try {
+      await recordCreator(marketId.toString(), parsed.creator);
+    } catch {
+      // Ledger persistence is best-effort; the on-chain deploy succeeded.
+      // The MINE filter falls back to localStorage on the client when the
+      // server ledger is missing an entry.
     }
   }
 

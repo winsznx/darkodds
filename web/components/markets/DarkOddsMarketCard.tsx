@@ -7,6 +7,7 @@ import {addressLink} from "@/lib/chains";
 import {DarkOddsState, type DarkOddsMarket} from "@/lib/darkodds/types";
 
 import {CategoryPill} from "./CategoryPill";
+import {CreatedByYouBadge} from "./CreatedByYouBadge";
 import {formatProbability} from "./format";
 
 /**
@@ -21,7 +22,13 @@ import {formatProbability} from "./format";
  * "PLACE BET →" is intentionally disabled with an F9 tooltip; visible,
  * not hidden, not broken.
  */
-export function DarkOddsMarketCard({market}: {market: DarkOddsMarket}): React.ReactElement {
+export function DarkOddsMarketCard({
+  market,
+  createdByMe = false,
+}: {
+  market: DarkOddsMarket;
+  createdByMe?: boolean;
+}): React.ReactElement {
   const [a, b] = market.outcomes;
   const aTop = (a.probability ?? 0) >= (b.probability ?? 0);
 
@@ -54,6 +61,7 @@ export function DarkOddsMarketCard({market}: {market: DarkOddsMarket}): React.Re
         </div>
         <div className="mc-meta">
           <span>#{market.id.toString()}</span>
+          {createdByMe && <CreatedByYouBadge />}
           <span className={`mc-status ${statusClass}`} style={{margin: 0}}>
             {statusLabel}
           </span>

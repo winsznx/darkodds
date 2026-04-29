@@ -1,5 +1,6 @@
 import {DarkOddsState, type DarkOddsStateValue} from "@/lib/darkodds/types";
 
+import {CreatedByYouBadge} from "@/components/markets/CreatedByYouBadge";
 import {formatEndDate} from "@/components/markets/format";
 
 interface MarketHeaderProps {
@@ -8,6 +9,7 @@ interface MarketHeaderProps {
   state: DarkOddsStateValue;
   expiryTs: bigint;
   isResolved: boolean;
+  createdByMe?: boolean;
 }
 
 function stateLabel(state: DarkOddsStateValue): {label: string; cls: string} {
@@ -19,13 +21,20 @@ function stateLabel(state: DarkOddsStateValue): {label: string; cls: string} {
   return {label: "OPEN", cls: "md-state-badge--open"};
 }
 
-export function MarketHeader({id, question, state, expiryTs}: MarketHeaderProps): React.ReactElement {
+export function MarketHeader({
+  id,
+  question,
+  state,
+  expiryTs,
+  createdByMe = false,
+}: MarketHeaderProps): React.ReactElement {
   const {label, cls} = stateLabel(state);
   const endDate = expiryTs === BigInt(0) ? null : new Date(Number(expiryTs) * 1000);
   return (
     <header className="md-header">
       <div className="md-meta-row">
         <span className="id">MARKET #{id.toString()}</span>
+        {createdByMe && <CreatedByYouBadge />}
         <span className={`md-state-badge ${cls}`}>{label}</span>
         <span className="md-end">{formatEndDate(endDate)}</span>
       </div>

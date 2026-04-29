@@ -1,11 +1,13 @@
 "use client";
 
-import {useCallback, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 
 import type {DarkOddsMarket} from "@/lib/darkodds/types";
 import {DarkOddsState} from "@/lib/darkodds/types";
 import {buildCategoryUnion, derivePolymarketCategory} from "@/lib/markets/categories";
+import {localCreatedIdSet} from "@/lib/markets/created-markets";
 import type {PolymarketMarket, PolymarketError} from "@/lib/polymarket";
+import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
 
 import "./markets.css";
 
@@ -53,11 +55,57 @@ export function MarketsLayout({
   const [sort, setSort] = useState<SortKey>("volume");
   const [status, setStatus] = useState<StatusKey>("all");
   const [category, setCategory] = useState("");
+  const [mine, setMine] = useState(false);
   // "Now" is captured at mount and never updated — the ENDING SOON sort
   // uses time-of-mount as its cutoff, which is good enough for a
   // page-session and keeps the useMemo bodies pure (react-hooks/purity).
   const [nowMs] = useState(() => Date.now());
   const nowSec = useMemo(() => BigInt(Math.floor(nowMs / 1000)), [nowMs]);
+
+  // Created-market merge: localStorage is the fast path (instant, no network),
+  // /api/markets/created-by/[address] is the authoritative path that survives
+  // browser-storage clears + device switches. Both fold into one Set.
+  const connectedAddress = useConnectedAddress();
+  const [localCreatedIds, setLocalCreatedIds] = useState<Set<string>>(() => new Set());
+  const [serverCreatedIds, setServerCreatedIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const next = localCreatedIdSet();
+    const t = setTimeout(() => setLocalCreatedIds(next), 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!connectedAddress) {
+      const t = setTimeout(() => setServerCreatedIds(new Set()), 0);
+      return () => clearTimeout(t);
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/markets/created-by/${connectedAddress}`, {cache: "no-store"});
+        const json = (await res.json()) as {ok: boolean; marketIds?: string[]};
+        if (cancelled) return;
+        if (json.ok && Array.isArray(json.marketIds)) {
+          setServerCreatedIds(new Set(json.marketIds));
+        }
+      } catch {
+        // Server ledger fetch failed — localStorage stays as the only source.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectedAddress]);
+
+  const myCreatedIds = useMemo(() => {
+    const merged = new Set<string>(localCreatedIds);
+    for (const id of serverCreatedIds) merged.add(id);
+    return merged;
+  }, [localCreatedIds, serverCreatedIds]);
+
+  const mineAvailable = connectedAddress !== undefined && myCreatedIds.size > 0;
+  const mineActive = mine && mineAvailable;
 
   const availableCategories = useMemo(() => {
     const union = buildCategoryUnion(polymarketMarkets);
@@ -77,6 +125,7 @@ export function MarketsLayout({
       // them when filter is unset OR when filter is "Private". Hide them
       // when any other domain category is selected.
       if (category && category.toLowerCase() !== "private") return false;
+      if (mineActive && !myCreatedIds.has(m.id.toString())) return false;
       return true;
     });
     if (sort === "newest" || sort === "volume") {
@@ -85,9 +134,10 @@ export function MarketsLayout({
       arr = [...arr].filter((m) => m.expiryTs > nowSec).sort((a, b) => Number(a.expiryTs - b.expiryTs));
     }
     return arr;
-  }, [darkOddsMarkets, search, status, category, sort, nowSec]);
+  }, [darkOddsMarkets, search, status, category, sort, nowSec, mineActive, myCreatedIds]);
 
   const visiblePolymarket = useMemo(() => {
+    if (mineActive) return [];
     let arr = polymarketMarkets.filter((m) => {
       if (search.trim() && !m.question.toLowerCase().includes(search.trim().toLowerCase())) return false;
       if (status === "active" && !(m.active && !m.closed)) return false;
@@ -110,17 +160,19 @@ export function MarketsLayout({
       arr = [...arr].sort((a, b) => b.volume24hrUsd - a.volume24hrUsd);
     }
     return arr;
-  }, [polymarketMarkets, search, status, category, sort, nowMs]);
+  }, [polymarketMarkets, search, status, category, sort, nowMs, mineActive]);
 
   const clearAll = useCallback(() => {
     setSearch("");
     setStatus("all");
     setCategory("");
     setSort("volume");
+    setMine(false);
   }, []);
 
   const bothEmpty = visibleDarkOdds.length === 0 && visiblePolymarket.length === 0;
-  const hasAnyFilter = search.trim() !== "" || status !== "all" || category !== "" || sort !== "volume";
+  const hasAnyFilter =
+    search.trim() !== "" || status !== "all" || category !== "" || sort !== "volume" || mineActive;
 
   return (
     <div className="markets-shell">
@@ -137,6 +189,9 @@ export function MarketsLayout({
           category={category}
           onCategory={setCategory}
           availableCategories={availableCategories}
+          mine={mine}
+          onMine={setMine}
+          mineAvailable={mineAvailable}
         />
         <MarketsChips
           search={search}
@@ -147,6 +202,8 @@ export function MarketsLayout({
           onClearCategory={() => setCategory("")}
           sort={sort}
           onClearSort={() => setSort("volume")}
+          mine={mineActive}
+          onClearMine={() => setMine(false)}
         />
       </div>
 
@@ -193,7 +250,11 @@ export function MarketsLayout({
             ) : (
               <div className="markets-cardlist">
                 {visibleDarkOdds.map((m) => (
-                  <DarkOddsMarketCard key={m.id.toString()} market={m} />
+                  <DarkOddsMarketCard
+                    key={m.id.toString()}
+                    market={m}
+                    createdByMe={myCreatedIds.has(m.id.toString())}
+                  />
                 ))}
               </div>
             )}

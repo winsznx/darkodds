@@ -5,11 +5,12 @@ import {useEffect, useRef, useState} from "react";
 import {usePrivy, useWallets} from "@privy-io/react-auth";
 import {Wallet} from "lucide-react";
 import {formatEther, formatUnits} from "viem";
-import {useAccount, useBalance, useReadContract} from "wagmi";
+import {useBalance, useReadContract} from "wagmi";
 
 import {addressLink} from "@/lib/chains";
 import {confidentialUsdcAbi, testUsdcAbi} from "@/lib/contracts/generated";
 import {addresses} from "@/lib/contracts/addresses";
+import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
 
 function shortAddr(addr: string | undefined): string {
   if (!addr || addr.length < 10) return "—";
@@ -19,7 +20,7 @@ function shortAddr(addr: string | undefined): string {
 export function WalletButton(): React.ReactElement {
   const {ready, authenticated, login, logout} = usePrivy();
   const {wallets} = useWallets();
-  const {address} = useAccount();
+  const address = useConnectedAddress();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 

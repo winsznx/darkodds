@@ -3,13 +3,17 @@
 import {useEffect, useState} from "react";
 
 import {usePrivy, useWallets} from "@privy-io/react-auth";
-import {Check, Copy, ExternalLink, Plus, X} from "lucide-react";
-import {BaseError, ContractFunctionRevertedError, formatEther, formatUnits, type Hex} from "viem";
-import {useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract} from "wagmi";
+import {Check, Copy, ExternalLink, Loader, Plus, X} from "lucide-react";
+import {BaseError, ContractFunctionRevertedError, formatEther, formatUnits, parseEther, type Hex} from "viem";
+import {useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract} from "wagmi";
 
 import {chain, txLink} from "@/lib/chains";
 import {addresses} from "@/lib/contracts/addresses";
 import {faucetAbi, testUsdcAbi} from "@/lib/contracts/generated";
+import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
+
+const GAS_THRESHOLD_WEI = parseEther("0.001");
+const GAS_AIRDROP_AMOUNT = "0.005";
 
 interface FaucetModalProps {
   open: boolean;
@@ -61,7 +65,7 @@ function describeClaimError(err: Error): string {
 
 export function FaucetModal({open, onClose}: FaucetModalProps): React.ReactElement | null {
   const {authenticated, login} = usePrivy();
-  const {address} = useAccount();
+  const address = useConnectedAddress();
 
   // Esc-to-close + body scroll lock while open.
   useEffect(() => {
@@ -109,6 +113,7 @@ export function FaucetModal({open, onClose}: FaucetModalProps): React.ReactEleme
         {authenticated && address && (
           <>
             <FaucetNetworkStep />
+            <FaucetGasAirdropStep address={address} />
             <FaucetEthStep address={address} />
             <FaucetUsdcStep address={address} />
           </>
@@ -221,6 +226,160 @@ function FaucetNetworkStep(): React.ReactElement {
   );
 }
 
+/**
+ * STEP 02 — Server-sponsored 0.005 ETH airdrop. Renders only when the
+ * connected wallet's Arb Sepolia ETH balance is below GAS_THRESHOLD_WEI
+ * (0.001 ETH). Once the balance crosses the threshold the step hides and
+ * the user falls through to the manual ETH step (which becomes redundant
+ * but stays as a backup for power users who want to bridge themselves).
+ *
+ * Failure modes surfaced to the UI:
+ *   - "address-already-airdropped" → graceful nudge to the manual ETH step
+ *   - "ip-rate-limit"               → retry-in-N-hours with countdown
+ *   - "wallet-empty"                → "operator must top up" disclosure
+ *   - "airdrop-disabled"            → "airdrop service unavailable"
+ *   - generic tx failure            → "request failed, try the manual path"
+ */
+function FaucetGasAirdropStep({address}: AddressedStepProps): React.ReactElement | null {
+  const ethBal = useBalance({address, query: {refetchInterval: 4_000}});
+  const [phase, setPhase] = useState<"idle" | "requesting" | "success" | "error">("idle");
+  const [txHash, setTxHash] = useState<Hex | null>(null);
+  const [errReason, setErrReason] = useState<string | null>(null);
+  const [errMessage, setErrMessage] = useState<string | null>(null);
+  const [retryAfterSec, setRetryAfterSec] = useState<number | null>(null);
+
+  // Hide the step entirely once the wallet has enough gas. The first-load
+  // balance read can briefly be `undefined` while wagmi hydrates — render
+  // the step optimistically so a fresh email-auth user sees the airdrop
+  // CTA without a flash of nothing.
+  const balValue = ethBal.data?.value;
+  const balLoaded = balValue !== undefined;
+  if (balLoaded && balValue >= GAS_THRESHOLD_WEI && phase !== "success") return null;
+
+  const handleRequest = async (): Promise<void> => {
+    setPhase("requesting");
+    setErrReason(null);
+    setErrMessage(null);
+    setRetryAfterSec(null);
+    try {
+      const res = await fetch("/api/airdrop/gas", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({address}),
+      });
+      const json = (await res.json()) as
+        | {ok: true; txHash: Hex; warning?: string}
+        | {ok: false; reason: string; message?: string; retryAfterSec?: number};
+      if (json.ok) {
+        setTxHash(json.txHash);
+        setPhase("success");
+        // Refresh balance immediately so the manual ETH step's "Current ETH"
+        // line picks up the grant without waiting for the 4s poll.
+        void ethBal.refetch();
+        return;
+      }
+      setPhase("error");
+      setErrReason(json.reason);
+      setErrMessage(json.message ?? null);
+      if (typeof json.retryAfterSec === "number") setRetryAfterSec(json.retryAfterSec);
+    } catch (err) {
+      setPhase("error");
+      setErrReason("network");
+      setErrMessage(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <div className="modal-step">
+      <div className="modal-step-num">STEP 02</div>
+      <h3 className="modal-step-h">Gas airdrop.</h3>
+      <p className="modal-step-desc">
+        Your wallet needs gas to interact with the protocol. Request <strong>{GAS_AIRDROP_AMOUNT} ETH</strong>{" "}
+        on Arbitrum Sepolia, free, one-time per address. After this you can claim TestUSDC and place bets.
+      </p>
+
+      {phase === "idle" && (
+        <button type="button" className="modal-cta" onClick={() => void handleRequest()}>
+          REQUEST {GAS_AIRDROP_AMOUNT} ETH
+        </button>
+      )}
+
+      {phase === "requesting" && (
+        <button type="button" className="modal-cta" disabled>
+          <Loader size={12} /> SUBMITTING…
+        </button>
+      )}
+
+      {phase === "success" && (
+        <>
+          <div className="modal-step-success">
+            <Check size={12} /> {GAS_AIRDROP_AMOUNT} ETH sent.
+            {txHash && (
+              <a className="tx-hash" href={txLink(txHash)} target="_blank" rel="noopener noreferrer">
+                {txHash.slice(0, 12)}… ↗
+              </a>
+            )}
+          </div>
+          <p className="modal-step-desc" style={{margin: 0}}>
+            Continue to the TestUSDC step below.
+          </p>
+        </>
+      )}
+
+      {phase === "error" && (
+        <div className="modal-step-error">
+          {errReason === "address-already-airdropped" && (
+            <>
+              <p style={{margin: "0 0 8px"}}>
+                This address has already received the gas airdrop. Use the manual ETH onramp below —
+                Chainlink&apos;s Arb Sepolia faucet is the fastest path.
+              </p>
+              <a
+                className="modal-cta modal-cta--secondary"
+                href={CHAINLINK_FAUCET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                OPEN CHAINLINK FAUCET <ExternalLink size={11} />
+              </a>
+            </>
+          )}
+          {errReason === "ip-rate-limit" && (
+            <p style={{margin: 0}}>
+              Too many grants from this network.{" "}
+              {retryAfterSec !== null && retryAfterSec > 0
+                ? `Try again in ${Math.max(1, Math.ceil(retryAfterSec / 3600))}h.`
+                : "Try again later."}{" "}
+              Or use the manual ETH step below.
+            </p>
+          )}
+          {errReason === "wallet-empty" && (
+            <p style={{margin: 0}}>
+              Airdrop wallet temporarily empty. Operator notified — please use the manual ETH step below.
+            </p>
+          )}
+          {errReason === "airdrop-disabled" && (
+            <p style={{margin: 0}}>Gas airdrop service unavailable. Use the manual ETH step below.</p>
+          )}
+          {!["address-already-airdropped", "ip-rate-limit", "wallet-empty", "airdrop-disabled"].includes(
+            errReason ?? "",
+          ) && (
+            <p style={{margin: 0}}>
+              Airdrop request failed{errMessage ? `: ${errMessage.slice(0, 200)}` : "."} Use the manual ETH
+              step below.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="modal-balance-row">
+        <span className="k">Current ETH</span>
+        <span>{ethBal.data ? Number(formatEther(ethBal.data.value)).toFixed(4) : "—"}</span>
+      </div>
+    </div>
+  );
+}
+
 function FaucetEthStep({address}: AddressedStepProps): React.ReactElement {
   const ethBal = useBalance({address});
   const [copied, setCopied] = useState(false);
@@ -234,11 +393,12 @@ function FaucetEthStep({address}: AddressedStepProps): React.ReactElement {
 
   return (
     <div className="modal-step">
-      <div className="modal-step-num">STEP 02</div>
-      <h3 className="modal-step-h">Get Arb Sepolia ETH.</h3>
+      <div className="modal-step-num">STEP 03</div>
+      <h3 className="modal-step-h">Or: get ETH yourself.</h3>
       <p className="modal-step-desc">
-        You need ETH for gas. Two paths — try Chainlink&apos;s direct Arb Sepolia faucet first; if it&apos;s
-        rate-limited, the Sepolia → Arb bridge is the fallback.
+        Manual fallback if the airdrop step above doesn&apos;t apply (your address already received one, or
+        the IP rate limit hit). Two paths — try Chainlink&apos;s direct Arb Sepolia faucet first; if it&apos;s
+        rate-limited, the Sepolia → Arb bridge is the backup.
       </p>
 
       <div className="modal-addr">
@@ -344,7 +504,7 @@ function FaucetUsdcStep({address}: AddressedStepProps): React.ReactElement {
 
   return (
     <div className="modal-step">
-      <div className="modal-step-num">STEP 03</div>
+      <div className="modal-step-num">STEP 04</div>
       <h3 className="modal-step-h">Claim TestUSDC.</h3>
       <p className="modal-step-desc">
         1,000 tUSDC every 6 hours. Wrap into cUSDC inside any market to bet confidentially.

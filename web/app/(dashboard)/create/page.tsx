@@ -5,7 +5,7 @@ import {Suspense, useEffect, useState} from "react";
 import {ArrowRight, Cpu, ExternalLink, Loader, Shield} from "lucide-react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {decodeEventLog, encodeFunctionData, type Hex} from "viem";
-import {useAccount, useWaitForTransactionReceipt} from "wagmi";
+import {useWaitForTransactionReceipt} from "wagmi";
 
 import "./create.css";
 
@@ -14,6 +14,7 @@ import {addresses} from "@/lib/contracts/addresses";
 import {marketRegistryAbi} from "@/lib/contracts/generated";
 import {getArbSepoliaFeeOverrides} from "@/lib/contracts/fees";
 import {useBetClients} from "@/lib/nox/client-hook";
+import {useConnectedAddress} from "@/lib/wallet/use-connected-address";
 import type {GenerateMarketParams} from "@/app/api/chaingpt/generate-market/route";
 
 // Deployer EOA — the address that holds operationally-delegated ownership of
@@ -87,7 +88,11 @@ interface DeployState {
 function CreateInner(): React.ReactElement {
   const router = useRouter();
   const search = useSearchParams();
-  const {isConnected, address: connectedAddress} = useAccount();
+  // Privy-synchronized address — avoids the wagmi useAccount hydration race
+  // that left isDeployer evaluating to `false` on first sign-in even when
+  // the embedded wallet WAS the deployer EOA. See lib/wallet/use-connected-address.
+  const connectedAddress = useConnectedAddress();
+  const isConnected = connectedAddress !== undefined;
   const {walletClient, publicClient, ready: clientsReady} = useBetClients();
 
   const polymarketSourceId = search.get("source") === "polymarket" ? search.get("id") : null;

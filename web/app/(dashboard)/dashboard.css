@@ -929,6 +929,46 @@
   padding: 12px 0;
   border-top: 1px solid var(--hairline);
 }
+
+/* Inline success / error blocks inside a modal-step (FaucetGasAirdropStep
+   surfaces these for the airdrop request lifecycle). */
+.modal-step-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-yes, #1f5c3d);
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+.modal-step-success .tx-hash {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--hairline-strong);
+}
+.modal-step-success .tx-hash:hover {
+  color: var(--fg);
+}
+.modal-step-error {
+  padding: 12px 14px;
+  border: 1px solid var(--redacted-red);
+  background: var(--bg-soft);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+.modal-step-error p {
+  font-size: 13px;
+  line-height: 1.5;
+}
 .modal-balance-row .k {
   color: var(--fg-muted);
   font-size: 10px;

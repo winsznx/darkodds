@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from "react";
 
 import {ChevronLeft, ChevronRight, FilePlus, Layers, LineChart, Pin, ScrollText} from "lucide-react";
+import {usePathname} from "next/navigation";
 
 import {NavItem} from "./NavItem";
 import {ProtocolStats} from "./ProtocolStats";
@@ -20,6 +21,20 @@ export function Sidebar({open, onClose}: SidebarProps): React.ReactElement {
   const {collapsed, toggle, setCollapsed} = useSidebarMode();
   const [peeking, setPeeking] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
+  const pathname = usePathname();
+
+  // After a nav click, the activated link keeps DOM focus on the new page —
+  // which fires `focusin` on the sidebar's listener and pins peek-mode open
+  // for the entire next route. Drop residual focus inside the sidebar on
+  // every pathname change so the rail re-collapses cleanly.
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && aside.contains(active)) {
+      active.blur();
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!collapsed) return;

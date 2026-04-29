@@ -348,18 +348,11 @@ function CreateInner(): React.ReactElement {
 
       <section className="create-body">
         {!isConnected && (
-          <div className="create-mirror-banner" role="status">
-            <span className="stamp stamp--red" style={{transform: "rotate(-1deg)"}}>
-              CONNECT WALLET TO CREATE
-            </span>
-            <p className="mirror-question">
-              Markets are created on-chain by your connected wallet. The MINE filter on <em>/markets</em>{" "}
-              reads the creator address — without a wallet, generated markets can&rsquo;t be linked back to
-              you. Use the <strong>CONNECT</strong> button in the topbar to continue.
-            </p>
+          <div className="create-gate" role="status">
+            CONNECT WALLET TO CREATE A MARKET
           </div>
         )}
-        {polymarketSourceId && (
+        {isConnected && polymarketSourceId && (
           <div className="create-mirror-banner">
             <span className="stamp stamp--red" style={{transform: "rotate(-1deg)"}}>
               MIRRORED FROM POLYMARKET
@@ -388,43 +381,43 @@ function CreateInner(): React.ReactElement {
           </div>
         )}
 
-        <div className="create-prompt-panel">
-          <h2>{"// Describe your market in natural language"}</h2>
-          <textarea
-            className="create-prompt-textarea"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={EXAMPLE_PROMPT}
-            rows={mirrorSeed ? 6 : 4}
-          />
-          <div className="create-generate-row">
-            <button
-              type="button"
-              className="create-cta"
-              onClick={() => void handleGenerate()}
-              disabled={!prompt.trim() || generating || !isConnected}
-              title={!isConnected ? "Connect a wallet to generate a market" : undefined}
-            >
-              <Cpu size={12} />
-              GENERATE WITH CHAINGPT
-            </button>
-            {generating && (
-              <span className="create-generating">
-                <Loader size={12} />
-                Calling ChainGPT…
-              </span>
+        {isConnected && (
+          <div className="create-prompt-panel">
+            <h2>{"// Describe your market in natural language"}</h2>
+            <textarea
+              className="create-prompt-textarea"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={EXAMPLE_PROMPT}
+              rows={mirrorSeed ? 6 : 4}
+            />
+            <div className="create-generate-row">
+              <button
+                type="button"
+                className="create-cta"
+                onClick={() => void handleGenerate()}
+                disabled={!prompt.trim() || generating}
+              >
+                <Cpu size={12} />
+                GENERATE WITH CHAINGPT
+              </button>
+              {generating && (
+                <span className="create-generating">
+                  <Loader size={12} />
+                  Calling ChainGPT…
+                </span>
+              )}
+            </div>
+            {generateError && (
+              <p className="create-error">
+                {"// ERROR: "}
+                {generateError}
+              </p>
             )}
-            {!isConnected && !generating && <span className="create-generating">Connect wallet first</span>}
           </div>
-          {generateError && (
-            <p className="create-error">
-              {"// ERROR: "}
-              {generateError}
-            </p>
-          )}
-        </div>
+        )}
 
-        {params !== null && (
+        {isConnected && params !== null && (
           <div className="create-params-panel">
             <h2>{"// Review + edit market parameters"}</h2>
 

@@ -8,6 +8,19 @@
   gap: 32px;
 }
 
+/* ── connect-wallet gate — mirrors /portfolio's .pf-gate so the
+       disconnected state is visually consistent across the dashboard ── */
+.create-gate {
+  border: 1px dashed var(--hairline-strong);
+  padding: 64px 32px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
 /* ── Polymarket → DarkOdds clone banner (Model C wedge) ──────────── */
 .create-mirror-banner {
   border: 1px solid var(--redacted-red);

@@ -157,6 +157,38 @@ body {
   box-sizing: border-box;
 }
 
+/* ============================================================
+   APP-WIDE CSS VARS — single source of truth for layout values
+   that multiple components reference.
+   ============================================================ */
+:root {
+  /* Dashboard topbar height. Used by sticky-positioned children
+     (sidebar, /markets filter bar) so their `top:` anchor agrees
+     with the topbar's actual painted height. Update here, not in
+     individual stylesheets. */
+  --topbar-height: 53px;
+}
+
+/* ============================================================
+   Z-INDEX LADDER
+   ----------------------------------------------------------------
+   Pinned, app-wide, single source of truth. Stickies / overlays
+   in any component should pick a value from this ladder rather
+   than introducing a new one. Spacing is 10 so neighbors don't
+   collide if a child needs +1.
+
+     0    base flow
+     1    paper-grain ::before, ambient layers
+    20    in-row dropdowns (filter selects, autocompletes)
+    40    sticky filter bars, page-internal sticky regions
+    50    sticky topbars (dashboard topbar, landing header)
+    55    page sidebar peek-overlay (floats above filter bar
+          when expanded but stays under modals)
+    60    modals + their backdrops
+    70    toasts / transient banners
+    99    devtools-only overlays (force-pm-error indicator etc.)
+   ============================================================ */
+
 /* Subtle paper grain — applied to body via ::before. Keeps the dossier feel
    without becoming noisy. */
 body::before {

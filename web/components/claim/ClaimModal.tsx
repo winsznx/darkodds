@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useReducer} from "react";
+import {useEffect, useMemo, useReducer} from "react";
 
 import {Check, ExternalLink, Loader, X} from "lucide-react";
 import {formatUnits} from "viem";
@@ -11,6 +11,7 @@ import {txLink} from "@/lib/chains";
 import {runClaim} from "@/lib/claim/run-claim";
 import {initialClaimState, reduceClaim, type ClaimKind, type ClaimParams} from "@/lib/claim/state-machine";
 import {useBetClients} from "@/lib/nox/client-hook";
+import {ClaimQueue} from "@/components/primitives/ClaimQueue";
 
 interface ClaimModalProps {
   open: boolean;
@@ -18,6 +19,12 @@ interface ClaimModalProps {
   onClose: () => void;
   /** Triggered after success so the parent can refresh portfolio rows. */
   onSettled: () => void;
+  /** Dev-only: freezes the modal in `submitting` phase without firing the
+   *  on-chain runClaim. Used by /portfolio?preview-claim-queue=1 to make
+   *  the ClaimQueue stub visible without needing a real claimable position.
+   *  Production builds dead-code-elim this branch via the NODE_ENV gate
+   *  in the parent. */
+  preview?: boolean;
 }
 
 /**
@@ -27,9 +34,30 @@ interface ClaimModalProps {
  * Single tx, single decrypt. Mirrors BetModal's modal scaffolding but
  * without the multi-step progress rail — claim/refund is one wallet popup.
  */
-export function ClaimModal({open, params, onClose, onSettled}: ClaimModalProps): React.ReactElement | null {
+export function ClaimModal({
+  open,
+  params,
+  onClose,
+  onSettled,
+  preview = false,
+}: ClaimModalProps): React.ReactElement | null {
   const [state, dispatch] = useReducer(reduceClaim, initialClaimState);
   const {walletClient, publicClient, noxClient, ready: clientsReady} = useBetClients();
+  // Stub claim-queue position + ETA. Stable per-modal-open via params identity
+  // so the user doesn't see numbers flickering during the pending phases.
+  // Real values land when F11 indexer ships; see DRIFT_LOG.
+  const queueStub = useMemo(() => {
+    if (!params) return {position: 0, etaSec: 0};
+    // Deterministic but visibly varied. Uses the hash of the marketAddress
+    // so the same claim feels consistent across re-opens.
+    const seed = params.marketAddress
+      .slice(2)
+      .split("")
+      .reduce((acc, c) => acc * 31 + c.charCodeAt(0), 7);
+    const position = (Math.abs(seed) % 5) + 1; // 1..5
+    const etaSec = ((Math.abs(seed >> 3) % 13) + 6) * 5; // 30..90 (rounded to 5s)
+    return {position, etaSec};
+  }, [params]);
 
   // Open/close handshake — fire OPEN exactly once when params arrive.
   useEffect(() => {
@@ -58,6 +86,9 @@ export function ClaimModal({open, params, onClose, onSettled}: ClaimModalProps):
   // Drive the orchestrator once we're in `submitting` and clients are ready.
   useEffect(() => {
     if (state.phase !== "submitting") return;
+    // Dev preview short-circuit — keeps the modal frozen at submitting so
+    // the ClaimQueue stub stays visible for visual review.
+    if (preview) return;
     if (!clientsReady || !walletClient?.account || !noxClient) return;
     void runClaim({
       kind: state.params.kind,
@@ -136,6 +167,10 @@ export function ClaimModal({open, params, onClose, onSettled}: ClaimModalProps):
             {state.phase === "error" && `${kind === "claim" ? "Claim" : "Refund"} failed.`}
           </h2>
         </div>
+
+        {(state.phase === "submitting" || state.phase === "confirming" || state.phase === "decrypting") && (
+          <ClaimQueue position={queueStub.position} estimatedWaitSec={queueStub.etaSec} />
+        )}
 
         {(state.phase === "submitting" || state.phase === "confirming" || state.phase === "decrypting") && (
           <div className="cm-progress">

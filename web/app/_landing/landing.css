@@ -10,31 +10,38 @@
   flex-direction: column;
 }
 
-/* top utility strip */
-.hero-strip {
+/* Sticky landing header — lifted from inside .hero so position:sticky
+   follows the user the entire scroll. Matches the dashboard topbar
+   pattern (z-50, 2px ink border-top, 1px hairline border-bottom, no
+   shadow). Background is solid --bg so content scrolls cleanly under. */
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--bg);
   border-top: 2px solid var(--fg);
   border-bottom: 1px solid var(--hairline-strong);
-  padding: 10px 0;
+  padding: 10px 64px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
-.hero-strip .left {
+.landing-header .left {
   display: flex;
   gap: 24px;
   align-items: center;
   flex-wrap: wrap;
 }
-.hero-strip .right {
+.landing-header .right {
   display: flex;
   gap: 16px;
   align-items: center;
 }
-.hero-strip .brand {
+.landing-header .brand {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -45,7 +52,7 @@
   letter-spacing: -0.005em;
   text-transform: none;
 }
-.hero-strip .brand .crest {
+.landing-header .brand .crest {
   width: 22px;
   height: 22px;
   border: 1.5px solid var(--fg);
@@ -55,11 +62,11 @@
   font-family: var(--font-stamp);
   font-size: 11px;
 }
-.hero-strip .brand em {
+.landing-header .brand em {
   font-style: italic;
   font-weight: 500;
 }
-.hero-strip .dot {
+.landing-header .dot {
   width: 8px;
   height: 8px;
   background: var(--redacted-red);
@@ -338,7 +345,10 @@
   .illo {
     min-height: 420px;
   }
-  .hero-strip .left span:not(.brand):not(:first-child) {
+  .landing-header {
+    padding: 10px 24px;
+  }
+  .landing-header .left span:not(.brand):not(:first-child) {
     display: none;
   }
 }

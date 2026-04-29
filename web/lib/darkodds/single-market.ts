@@ -53,6 +53,11 @@ export interface DarkOddsMarketDetail {
   claimWindowOpensAt: bigint;
   resolutionOracle: Address;
   oracleType: number;
+  /** Unix seconds of the last published batch. Zero before the first batch. */
+  lastBatchTs: bigint;
+  /** Seconds between batches (Market.BATCH_INTERVAL constant). Always 60 in
+   *  the deployed v5 contracts but we read the constant for forward-compat. */
+  batchIntervalSec: bigint;
   outcomes: [DarkOddsCardOutcome, DarkOddsCardOutcome];
   isOpen: boolean;
   isResolved: boolean;
@@ -127,6 +132,8 @@ export async function getDarkOddsMarketDetail(
       | "protocolFeeBps"
       | "resolutionOracle"
       | "oracleType"
+      | "lastBatchTs"
+      | "BATCH_INTERVAL"
       | "yesBet"
       | "noBet";
     args?: readonly [Address];
@@ -145,6 +152,8 @@ export async function getDarkOddsMarketDetail(
     {address: marketAddress, abi: marketAbi, functionName: "protocolFeeBps"},
     {address: marketAddress, abi: marketAbi, functionName: "resolutionOracle"},
     {address: marketAddress, abi: marketAbi, functionName: "oracleType"},
+    {address: marketAddress, abi: marketAbi, functionName: "lastBatchTs"},
+    {address: marketAddress, abi: marketAbi, functionName: "BATCH_INTERVAL"},
   ];
   if (userAddress) {
     baseCalls.push(
@@ -163,7 +172,7 @@ export async function getDarkOddsMarketDetail(
     return null;
   }
 
-  for (const r of results.slice(0, 12)) {
+  for (const r of results.slice(0, 14)) {
     if (r.status !== "success") return null;
   }
 
@@ -187,11 +196,13 @@ export async function getDarkOddsMarketDetail(
     results[10]!.status === "success" ? results[10]!.result : addresses.ResolutionOracle
   ) as Address;
   const oracleType = Number(results[11]!.status === "success" ? results[11]!.result : 0);
+  const lastBatchTs = (results[12]!.status === "success" ? results[12]!.result : BigInt(0)) as bigint;
+  const batchIntervalSec = (results[13]!.status === "success" ? results[13]!.result : BigInt(60)) as bigint;
 
   let userBets: DarkOddsMarketDetail["userBets"] = null;
-  if (userAddress && results.length >= 14) {
-    const yesBet = results[12];
-    const noBet = results[13];
+  if (userAddress && results.length >= 16) {
+    const yesBet = results[14];
+    const noBet = results[15];
     userBets = {
       yes: (yesBet?.status === "success" ? (yesBet.result as Hex) : ZERO_BYTES32) as Hex,
       no: (noBet?.status === "success" ? (noBet.result as Hex) : ZERO_BYTES32) as Hex,
@@ -220,6 +231,8 @@ export async function getDarkOddsMarketDetail(
     claimWindowOpensAt,
     resolutionOracle,
     oracleType,
+    lastBatchTs,
+    batchIntervalSec,
     outcomes: deriveOutcomes(yesPoolFrozen, noPoolFrozen),
     isOpen,
     isResolved,

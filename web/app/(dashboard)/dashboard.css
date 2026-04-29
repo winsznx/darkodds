@@ -372,8 +372,8 @@
   flex: 0 0 240px;
   background: transparent;
   position: sticky;
-  top: 53px; /* topbar height */
-  height: calc(100vh - 53px);
+  top: var(--topbar-height);
+  height: calc(100vh - var(--topbar-height));
   overflow: visible;
   z-index: 1;
   transition: flex 200ms ease-out;
@@ -684,7 +684,7 @@
   }
   .sidebar {
     position: fixed;
-    top: 53px;
+    top: var(--topbar-height);
     left: 0;
     bottom: 0;
     z-index: 45;

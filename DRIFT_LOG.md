@@ -6,6 +6,36 @@ Format per §0.2.
 
 ---
 
+## [2026-04-29 polish-all] tools/seed-claimable-market.ts broken under F10b's operational delegation
+
+**Expected (per script header):** Running `pnpm tsx tools/seed-claimable-market.ts` mints tUSDC, deploys a fresh PreResolvedOracle, creates a market via the multisig Safe, advances Open → Closed → Resolving → ClaimWindow, and leaves a real claimable position the `/portfolio` UI can exercise (~3 min total).
+**Actual:** Step 3/9 (`createMarket`) reverts with Safe error `GS013` — "external call reverted." The Safe is signing `MarketRegistry.createMarket(...)`, but `createMarket` is `onlyOwner` and post-F10b operational delegation the registry owner is the deployer EOA `0xF97933…F1ab5`, not the Safe. The Safe is no longer authorized to call `createMarket`; the underlying call reverts; Safe wraps it as `GS013`.
+**Reason:** The script was authored pre-F10b when the Safe owned the registry. F10b operationally delegated ownership EOA-side so `/create` could deploy markets one-tx without a Safe-cosign loop. Side effect: any tooling that still routes `createMarket` through the Safe is now broken.
+**Impact:** No end-to-end claim-lifecycle test runs cleanly today. The polish-all phase added `/portfolio?preview-claim-queue=1` (dev-only) so the ClaimQueue UI is visually verifiable without a real claimable position. The actual claim flow still works on real claimable positions; only the seed shortcut is broken.
+**Decision:** Fix deferred to `fix(tools): seed-claimable-market under EOA-owned registry`, scheduled before demo recording. Patch the createMarket call site (line ~180) to use the deployer EOA wallet client directly instead of the Safe protocol-kit path. Oracle deploy / freeze / betting steps are unaffected by ownership and stay as-is.
+
+---
+
+## [2026-04-28 polish-all] PoolSparkline renders a stubbed 5-point series, not real batch history
+
+**Expected (per PRD §7.5):** `<PoolSparkline>` on `/markets/[id]` plots pool total over recent batches.
+**Actual:** The data fed in is a deterministic synthesized monotonic-up series anchored on the current `yesPoolFrozen + noPoolFrozen` totals. Five points spaced one `BATCH_INTERVAL` apart, ending at the current values; per-market wobble derived from `marketId % 1_000_000` so the curve shape stays stable across renders.
+**Reason:** Real batch history requires indexing the `BatchPublished` event (timestamp + bets-in-batch + cumulative pool) into a queryable store. That's subgraph / indexer territory. F11 ships the indexer; until then we'd be plotting a single point.
+**Impact:** `<PoolSparkline>` renders visibly across renders without flicker. The component contract is unchanged — F11 swaps `data` for the real series and the chart updates without code edits. The tooltip shows the actual numbers we'd plot, not lying about the shape; we just labeled this section honest about its source.
+**Decision:** Ship stub. F11 wires real series.
+
+---
+
+## [2026-04-28 polish-all] ClaimQueue position + ETA are stub values; no on-chain queue contract exists
+
+**Expected (per PRD §7.3):** `<ClaimQueue>` shows the user's place in the claim-settlement queue with realistic ETA.
+**Actual:** Position is `(hash(marketAddress) % 5) + 1` (1..5), ETA is `((hash >> 3 % 13) + 6) * 5` seconds (30..90s, rounded to 5s). Computed once per modal-open via `useMemo` on the params identity so the numbers stay stable through the submitting / confirming / decrypting phases.
+**Reason:** Deployed v5 `Market.sol` settles claims in submission order via individual `claimWinnings(...)` calls. There's no on-chain queue contract; "real" queue data would require an off-chain mempool watcher + recent-block aggregator (subgraph/indexer territory, deferred to v1.1 alongside the PoolSparkline indexer).
+**Impact:** Visual mass for the demo. The component renders with realistic-looking values that don't lie about anything except the mechanism that produced them. F11 swaps the stub `useMemo` for a hook that subscribes to the indexer.
+**Decision:** Ship stub. F11 wires real values.
+
+---
+
 ## [2026-04-28 F10b] F4.5 multisig hardening + F10 one-click /create flow conflict at MarketRegistry access control — resolved via operational delegation
 
 **Expected (per PRD §11 F4.5):** `MarketRegistry.owner()` is the 2-of-3 Safe multisig at `0x042a49…F332`; admin calls including `createMarket(...)` require Safe co-sign.

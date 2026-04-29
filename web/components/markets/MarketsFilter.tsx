@@ -2,8 +2,14 @@
 
 import {Search} from "lucide-react";
 
-export type SortKey = "volume" | "endingSoon" | "newest";
+export type SortKey = "volume" | "newest" | "endingSoon";
 export type StatusKey = "all" | "active" | "resolved";
+
+export const SORT_LABELS: Record<SortKey, string> = {
+  volume: "By 24h volume",
+  newest: "Newest",
+  endingSoon: "Ending soon",
+};
 
 interface MarketsFilterProps {
   search: string;
@@ -14,7 +20,8 @@ interface MarketsFilterProps {
   onStatus: (s: StatusKey) => void;
   category: string;
   onCategory: (c: string) => void;
-  /** Categories pulled from loaded Polymarket data + DarkOdds data. */
+  /** Categories pulled from loaded Polymarket data, filtered through the
+   *  DOMAIN_TAGS whitelist. Always includes "Private" for the DarkOdds side. */
   availableCategories: string[];
 }
 
@@ -79,9 +86,9 @@ export function MarketsFilter(props: MarketsFilterProps): React.ReactElement {
           value={sort}
           onChange={(e) => onSort(e.target.value as SortKey)}
         >
-          <option value="volume">Volume</option>
-          <option value="endingSoon">Ending soon</option>
-          <option value="newest">Recently created</option>
+          <option value="volume">{SORT_LABELS.volume}</option>
+          <option value="newest">{SORT_LABELS.newest}</option>
+          <option value="endingSoon">{SORT_LABELS.endingSoon}</option>
         </select>
       </div>
     </div>

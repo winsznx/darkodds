@@ -3,9 +3,12 @@
 import {ExternalLink} from "lucide-react";
 import Link from "next/link";
 
+import {derivePolymarketCategory} from "@/lib/markets/categories";
 import type {PolymarketMarket} from "@/lib/polymarket";
 
+import {CategoryPill} from "./CategoryPill";
 import {formatEndDate, formatProbability, formatUsdCompact} from "./format";
+import {MarketImage} from "./MarketImage";
 
 /**
  * Polymarket market card. Plaintext volume on the foot (visual contrast
@@ -20,15 +23,19 @@ export function PolymarketMarketCard({market}: {market: PolymarketMarket}): Reac
   // labels (Yes/No, Lakers/Rockets, Trump/Harris/Other) per F8 constraint.
   const sorted = [...market.outcomes].sort((a, b) => b.probability - a.probability);
   const ranked = sorted.slice(0, 4);
+  const category = derivePolymarketCategory(market);
 
   return (
     <article className="mc-card" data-source="polymarket">
       <div className="mc-head">
-        <span className="mc-source mc-source--pm" aria-label="Polymarket">
-          PM
-        </span>
+        <div className="mc-id-block">
+          <MarketImage image={market.imageUrl} icon={market.iconUrl} category={category} />
+          <span className="mc-source mc-source--pm" aria-label="Polymarket">
+            PM
+          </span>
+          <CategoryPill label={category} variant="public" />
+        </div>
         <div className="mc-meta">
-          {market.category && <span className="cat">{market.category.toUpperCase()}</span>}
           <span>{formatEndDate(market.endDate)}</span>
         </div>
       </div>

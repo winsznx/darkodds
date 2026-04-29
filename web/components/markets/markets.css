@@ -2,15 +2,179 @@
    /markets — parallel feed UI styles.
    ============================================================ */
 
-/* ─── filter bar ──────────────────────────────────────────── */
+.markets-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+/* ─── featured strip (top 3 by 24h volume) ───────────────── */
+.markets-featured {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.markets-featured-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.markets-featured-head .kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.markets-featured-h {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--fg);
+}
+.markets-featured-h em {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--fg-secondary);
+}
+.markets-featured-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.featured-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 20px 18px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+.featured-card:hover {
+  background: var(--bg-soft);
+}
+.featured-card .featured-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.featured-card .featured-ends {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.featured-card .featured-q {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variation-settings: "opsz" 144;
+  font-size: 22px;
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  color: var(--fg);
+  margin: 4px 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.featured-card .featured-bar {
+  display: flex;
+  height: 10px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+}
+.featured-card .featured-bar .bar-yes {
+  background: var(--accent-yes, #1f5c3d);
+}
+.featured-card .featured-bar .bar-no {
+  background: var(--accent-no, #7a1f1f);
+}
+.featured-card .featured-bar-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.featured-card .featured-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+.featured-card .featured-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.featured-card .featured-stat .k {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.featured-card .featured-stat .v {
+  font-size: 14px;
+  color: var(--fg);
+}
+.featured-card .featured-stat .v.redact-bar {
+  display: inline-block;
+  width: 80px;
+  height: 14px;
+  background: #000;
+  border: 0.5px solid #000;
+}
+.featured-card .featured-cta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── filter bar (sticky) ──────────────────────────────────── */
+.markets-filter-wrap {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 40; /* see globals.css ladder */
+  background: var(--bg);
+  padding-top: 8px;
+  margin-top: -8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .markets-filter {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid var(--hairline-strong);
   background: var(--bg);
-  margin-bottom: 32px;
   flex-wrap: wrap;
 }
 .markets-filter .filter-group {
@@ -98,6 +262,143 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* ─── identity block (image + source code + category pill) ─── */
+.mc-id-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─── thumbnail (Polymarket image fallback chain) ──────────── */
+.mc-img {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  flex-shrink: 0;
+  font-family: var(--font-stamp);
+  letter-spacing: 0.05em;
+  color: var(--fg);
+  object-fit: cover;
+}
+.mc-img--fallback {
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* ─── category pill (PRIVATE / CRYPTO / POLITICS / etc.) ───── */
+.mc-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--fg);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.mc-cat-pill--private {
+  border-color: var(--redacted-red);
+  color: var(--redacted-red);
+}
+.mc-cat-pill--public {
+  border-color: var(--hairline-strong);
+  color: var(--fg);
+}
+
+/* ─── active-filter chips ─────────────────────────────────── */
+.markets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.markets-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 5px 10px 4px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-soft);
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 0;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.markets-chip:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* ─── cross-feed empty state ──────────────────────────────── */
+.markets-empty-all {
+  border: 1px dashed var(--hairline-strong);
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg);
+  text-align: center;
+}
+.markets-empty-all .stamp {
+  margin: 0 0 8px;
+}
+.markets-empty-all .lede {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 420px;
+  margin: 0;
+}
+.markets-empty-all-cta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+.markets-empty-all-cta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  padding: 8px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.markets-empty-all-cta:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+.markets-empty-all-cta--primary {
+  background: var(--fg);
+  color: var(--bg);
+}
+.markets-empty-all-cta--primary:hover {
+  background: var(--declassified-amber);
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 /* ─── card primitives ──────────────────────────────────────── */
@@ -380,6 +681,9 @@
 
 /* ─── responsive ───────────────────────────────────────────── */
 @media (max-width: 1100px) {
+  .markets-shell {
+    gap: 48px;
+  }
   .markets-filter {
     gap: 12px;
     padding: 12px;
@@ -387,6 +691,18 @@
   .markets-feed {
     flex-direction: column;
     gap: 24px;
+  }
+  .markets-featured-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .markets-featured-h {
+    font-size: 24px;
+  }
+  /* Sticky bar takes space on mid-screens — anchor below the dashboard
+     topbar (height pinned in :root --topbar-height). */
+  .markets-filter-wrap {
+    top: var(--topbar-height);
   }
 }
 @media (max-width: 640px) {
@@ -396,6 +712,19 @@
   }
   .markets-filter .filter-group {
     justify-content: space-between;
+  }
+  /* Disable sticky on phones — saves vertical real estate. */
+  .markets-filter-wrap {
+    position: static;
+  }
+  .markets-featured-h {
+    font-size: 22px;
+  }
+  .featured-card {
+    padding: 16px;
+  }
+  .featured-card .featured-q {
+    font-size: 19px;
   }
   .mc-card {
     padding: 16px;

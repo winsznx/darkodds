@@ -3,21 +3,21 @@
  *
  * Two layers:
  *
- *   1. `GammaMarketRaw` — what the wire returns. NOT exported. Lives here so
- *      `client.ts` can type the raw response, but components and callers must
- *      never see it. The `outcomes` and `outcomePrices` fields are
- *      JSON-stringified arrays on the wire (see feedback.md "JSON-stringified
- *      array footgun" entry); the normalizer in `client.ts` parses them
- *      exactly once.
+ *   1. `GammaMarketRaw` — what the wire returns. NOT exported. Lives next to
+ *      `client.ts` so it can type the raw response, but components and
+ *      callers must never see it. The `outcomes`, `outcomePrices`, and
+ *      `clobTokenIds` fields are JSON-stringified arrays on the wire (see
+ *      docs/POLYMARKET_INTEGRATION.md → "JSON-stringified arrays"); the
+ *      normalizer parses them exactly once.
  *
  *   2. `PolymarketMarket` — the normalized public type every consumer uses.
  *      Outcomes are real arrays. Probabilities are real numbers. Dates are
- *      `Date` instances. Any field a downstream caller might want is here.
+ *      `Date` instances. Tags are surfaced both as the raw array (for
+ *      filtering) and a derived `category` string (for cards).
  *
- * F11 reuse note: `eventSlug` and `eventId` are populated even though F8's
- * UI doesn't render them. The `/create` clone flow will need event metadata
- * to seed a DarkOdds clone from a Polymarket question; cheap to add now,
- * retrofit-tax later.
+ * F11 reuse note: `eventSlug`, `eventId`, and `clobTokenIds` are populated
+ * even though the F8 UI doesn't render them — the `/create` clone flow
+ * needs them to seed a DarkOdds clone from a Polymarket question.
  */
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -42,7 +42,17 @@ export interface PolymarketOutcome {
   probability: number;
 }
 
+export interface PolymarketTag {
+  id: string;
+  label: string;
+  slug: string;
+  /** Some tags are server-side hidden from the public-facing pickers. */
+  forceHide?: boolean;
+  forceShow?: boolean;
+}
+
 export interface PolymarketMarket {
+  // Identity
   id: PolymarketMarketId;
   conditionId: `0x${string}`;
   slug: string;
@@ -50,13 +60,31 @@ export interface PolymarketMarket {
   /** Computed: `https://polymarket.com/event/<eventSlug ?? slug>`. */
   url: string;
 
+  // Content
   question: string;
+  /** Long prose. May be empty string. */
+  description: string;
+  /** Group-multimarket label, e.g. "April 22" within a parent event. */
+  groupItemTitle: string | null;
+
+  /** First non-`forceHide` tag's label, or null if no tags. Convenience for
+   *  category pills on cards. */
   category: string | null;
+  /** Full tag array for filter UIs. */
+  tags: PolymarketTag[];
 
-  /** May be null for evergreen / unbounded markets. */
+  // Dates
+  /** Scheduled close — null for evergreen markets. */
   endDate: Date | null;
+  /** First listed-for-trading timestamp. */
+  startDate: Date | null;
 
+  // Outcomes
   outcomes: PolymarketOutcome[];
+  /** YES/NO ERC-1155 token IDs (parsed from clobTokenIds), parallel to
+   *  `outcomes`. Used by the /create clone flow. Empty array if Gamma
+   *  didn't surface them (rare). */
+  clobTokenIds: string[];
 
   // Volume / liquidity in USD, plaintext (this is the visual contrast
   // against DarkOdds' redacted bars on /markets).
@@ -67,13 +95,18 @@ export interface PolymarketMarket {
   // Status flags (collapsed null → false on normalize).
   active: boolean;
   closed: boolean;
+  /** Proxy for "is bettable right now" — reflects orderbook open state. */
   acceptingOrders: boolean;
 
+  // Imagery (for cards)
   imageUrl: string | null;
+  iconUrl: string | null;
 
-  // Event metadata for F11 clone flow. Markets always have an `events` array
-  // of length 0 or 1 in our samples; we surface the parent event's ids
-  // when present.
+  // Resolution
+  /** Where the outcome will be sourced. Often empty (UMA-resolved). */
+  resolutionSource: string;
+
+  // Event metadata for /create clone flow.
   eventId: PolymarketEventId | null;
   eventSlug: string | null;
   eventTitle: string | null;
@@ -106,13 +139,12 @@ export interface GetMarketsFilters {
   /** Server-side ordering. */
   order?: "volume24hr" | "endDate" | "createdAt" | "liquidityNum";
   ascending?: boolean;
-  /** 1..500. Default 50. Gamma silently caps. */
+  /** 1..100. Default 100. Gamma silently caps higher requests. */
   limit?: number;
   offset?: number;
   /**
    * Category filter is not a Gamma server-side query param — we do
-   * client-side filtering after fetch. Documented here so the type is
-   * complete and the UI only has one place to filter.
+   * client-side filtering after fetch (matches against any tag label).
    */
   category?: string;
 }

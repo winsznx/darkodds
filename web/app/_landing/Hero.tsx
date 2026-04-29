@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import {ThemeToggle} from "./ThemeToggle";
-
 /**
  * Section 1 / 9 — Hero. Translated from the design handoff
  * (darkodds-declassified-dossier/project/hero.html). Surgical edits per the
@@ -9,29 +7,13 @@ import {ThemeToggle} from "./ThemeToggle";
  * three-line headline ending with "Permissionless creation.", new subhead,
  * stat 3 reframed as "Open-create · Markets" with the redaction-bar treatment
  * to reinforce that the count itself is a moving target.
+ *
+ * The top utility strip was lifted into ../LandingHeader.tsx so position:sticky
+ * survives past the hero's bounding box.
  */
 export function Hero(): React.ReactElement {
   return (
     <section className="hero">
-      {/* top utility strip */}
-      <div className="hero-strip">
-        <div className="left">
-          <span className="brand">
-            <span className="crest">D◆</span>
-            Dark<em>Odds</em>
-          </span>
-          <span>
-            <span className="dot" />
-            CLASSIFIED · INTERNAL
-          </span>
-          <span>FILE NO. DK-0426 / Δ</span>
-        </div>
-        <div className="right">
-          <span>iEXEC NOX · ARBITRUM</span>
-          <ThemeToggle />
-        </div>
-      </div>
-
       <div className="hero-grid">
         {/* LEFT */}
         <div className="hero-left">

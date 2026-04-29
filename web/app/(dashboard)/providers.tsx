@@ -51,7 +51,10 @@ export function Providers({children}: {children: React.ReactNode}): React.ReactE
           // Sync Privy's modal palette with the dossier theme.
           theme: theme === "dark" ? "dark" : "light",
           accentColor: "#A82820", // --redacted-red
-          logo: undefined,
+          // 512×512 crest served by app/icon-512/route.ts. The path is
+          // relative so it resolves against whichever origin the modal
+          // mounts under (production darkodds.site, preview, or local).
+          logo: "/icon-512",
           showWalletLoginFirst: false,
           walletChainType: "ethereum-only",
         },

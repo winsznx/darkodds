@@ -10,6 +10,9 @@ import type {Address, Hex} from "viem";
 import type {DarkOddsMarketDetail} from "@/lib/darkodds/single-market";
 
 import {BetModal} from "@/components/bet/BetModal";
+import {PoolSparkline, buildStubPoolSeries} from "@/components/charts/PoolSparkline";
+import {BatchTimer} from "@/components/primitives/BatchTimer";
+import {DarkOddsState} from "@/lib/darkodds/types";
 
 import {BetPanel} from "./BetPanel";
 import {EventLog} from "./EventLog";
@@ -32,6 +35,9 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
   const [betRefreshNonce, setBetRefreshNonce] = useState(0);
   const [betModalOpen, setBetModalOpen] = useState(false);
   const [betParams, setBetParams] = useState<{sideIndex: 0 | 1; amountUsdc: bigint} | null>(null);
+  // Captured-at-mount; the sparkline stub is deterministic, so a stable
+  // anchor keeps the curve shape from flickering across re-renders.
+  const [mountSec] = useState(() => Math.floor(Date.now() / 1000));
 
   // Per-user bet handles. Server-side rendered without a connected user, so
   // we re-fetch client-side once Privy resolves the connected address. Keeps
@@ -123,6 +129,29 @@ export function MarketDetail({market}: MarketDetailProps): React.ReactElement {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Real-data: lastBatchTs read on the server-side multicall. Sparkline
+            is stubbed (see DRIFT_LOG → PoolSparkline). Both render only in
+            Open state — once Closed/Resolved, batches stop and the history
+            is fixed. */}
+        {market.state === DarkOddsState.Open && (
+          <>
+            <PoolSparkline
+              data={buildStubPoolSeries(
+                market.yesPoolFrozen,
+                market.noPoolFrozen,
+                market.id,
+                mountSec,
+                Number(market.batchIntervalSec),
+              )}
+            />
+            <BatchTimer
+              nextBatchTs={
+                market.lastBatchTs > BigInt(0) ? Number(market.lastBatchTs + market.batchIntervalSec) : null
+              }
+            />
+          </>
         )}
 
         <OutcomesPanel outcomes={market.outcomes} />

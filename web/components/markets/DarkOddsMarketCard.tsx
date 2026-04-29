@@ -6,6 +6,7 @@ import {addressLink} from "@/lib/chains";
 
 import {DarkOddsState, type DarkOddsMarket} from "@/lib/darkodds/types";
 
+import {CategoryPill} from "./CategoryPill";
 import {formatProbability} from "./format";
 
 /**
@@ -45,9 +46,12 @@ export function DarkOddsMarketCard({market}: {market: DarkOddsMarket}): React.Re
   return (
     <article className="mc-card" data-source="darkodds">
       <div className="mc-head">
-        <span className="mc-source mc-source--do" aria-label="DarkOdds">
-          DO
-        </span>
+        <div className="mc-id-block">
+          <span className="mc-source mc-source--do" aria-label="DarkOdds">
+            DO
+          </span>
+          <CategoryPill label="Private" variant="private" />
+        </div>
         <div className="mc-meta">
           <span>#{market.id.toString()}</span>
           <span className={`mc-status ${statusClass}`} style={{margin: 0}}>

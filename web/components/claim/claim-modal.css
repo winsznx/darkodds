@@ -3,6 +3,7 @@
    .modal-head / .modal-cta from dashboard.css; adds claim-flow
    progress + success + error.
    ============================================================ */
+@import "../primitives/primitives.css";
 
 .cm-progress {
   padding: 24px 32px;

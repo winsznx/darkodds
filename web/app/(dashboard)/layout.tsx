@@ -1,5 +1,7 @@
 import "./dashboard.css";
 
+import {ScrollToTop} from "@/components/ScrollToTop";
+
 import {Providers} from "./providers";
 import {Shell} from "./Shell";
 
@@ -9,6 +11,7 @@ import {Shell} from "./Shell";
 export default function DashboardLayout({children}: {children: React.ReactNode}): React.ReactElement {
   return (
     <Providers>
+      <ScrollToTop />
       <Shell>{children}</Shell>
     </Providers>
   );

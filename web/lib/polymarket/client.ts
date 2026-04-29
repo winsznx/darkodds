@@ -16,6 +16,7 @@ import {
   type GetMarketsFilters,
   type PolymarketMarket,
   type PolymarketResult,
+  type PolymarketTag,
   polymarketEventId,
   polymarketMarketId,
 } from "./types";
@@ -40,16 +41,28 @@ interface GammaEventRaw {
   title?: string;
 }
 
+interface GammaTagRaw {
+  id: string;
+  label: string;
+  slug: string;
+  forceHide?: boolean;
+  forceShow?: boolean;
+}
+
 interface GammaMarketRaw {
   id: string;
   conditionId: string;
   slug: string;
   question: string | null;
-  category?: string | null;
+  description?: string | null;
+  groupItemTitle?: string | null;
   endDate: string | null;
   endDateIso?: string | null;
-  outcomes: string | null; // JSON-stringified — see feedback.md
-  outcomePrices: string | null; // JSON-stringified — see feedback.md
+  startDate?: string | null;
+  startDateIso?: string | null;
+  outcomes: string | null; // JSON-stringified — see docs/POLYMARKET_INTEGRATION.md
+  outcomePrices: string | null; // JSON-stringified — see docs
+  clobTokenIds?: string | null; // JSON-stringified — see docs
   volumeNum: number | null;
   volume24hr: number | null;
   liquidityNum: number | null;
@@ -58,7 +71,9 @@ interface GammaMarketRaw {
   acceptingOrders: boolean | null;
   image: string | null;
   icon?: string | null;
+  resolutionSource?: string | null;
   events?: GammaEventRaw[] | null;
+  tags?: GammaTagRaw[] | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -151,8 +166,35 @@ function normalizeMarket(raw: GammaMarketRaw): PolymarketMarket | null {
     };
   });
 
+  // clobTokenIds — JSON-stringified parallel array. Best-effort parse;
+  // missing/malformed leaves it empty (the /create clone flow can degrade
+  // gracefully without it).
+  let clobTokenIds: string[] = [];
+  if (raw.clobTokenIds) {
+    try {
+      const parsed = JSON.parse(raw.clobTokenIds) as unknown;
+      if (Array.isArray(parsed) && parsed.every((x): x is string => typeof x === "string")) {
+        clobTokenIds = parsed;
+      }
+    } catch {
+      // ignore — clobTokenIds is optional for display
+    }
+  }
+
+  // Tags — first non-`forceHide` is the surfaced category. Empty if
+  // include_tag=true wasn't on the request (or the market has no tags).
+  const tags: PolymarketTag[] = (raw.tags ?? []).map((t) => ({
+    id: t.id,
+    label: t.label,
+    slug: t.slug,
+    forceHide: t.forceHide ?? false,
+    forceShow: t.forceShow ?? false,
+  }));
+  const categoryTag = tags.find((t) => !t.forceHide);
+  const category = categoryTag ? categoryTag.label : null;
+
   // First (and usually only) parent event surfaces eventId/eventSlug for
-  // F11 clone flow.
+  // /create clone flow.
   const event = raw.events?.[0];
   const eventId = event?.id ? polymarketEventId(event.id) : null;
   const eventSlug = event?.slug ?? null;
@@ -164,6 +206,8 @@ function normalizeMarket(raw: GammaMarketRaw): PolymarketMarket | null {
 
   const endDateStr = raw.endDateIso ?? raw.endDate;
   const endDate = endDateStr ? new Date(endDateStr) : null;
+  const startDateStr = raw.startDateIso ?? raw.startDate ?? null;
+  const startDate = startDateStr ? new Date(startDateStr) : null;
 
   return {
     id: polymarketMarketId(raw.id),
@@ -173,9 +217,14 @@ function normalizeMarket(raw: GammaMarketRaw): PolymarketMarket | null {
     slug: raw.slug,
     url,
     question: raw.question,
-    category: raw.category ?? null,
+    description: raw.description ?? "",
+    groupItemTitle: raw.groupItemTitle ?? null,
+    category,
+    tags,
     endDate,
+    startDate,
     outcomes,
+    clobTokenIds,
     volumeUsd: raw.volumeNum ?? 0,
     volume24hrUsd: raw.volume24hr ?? 0,
     liquidityUsd: raw.liquidityNum ?? 0,
@@ -183,6 +232,8 @@ function normalizeMarket(raw: GammaMarketRaw): PolymarketMarket | null {
     closed: raw.closed ?? false,
     acceptingOrders: raw.acceptingOrders ?? false,
     imageUrl: raw.image ?? raw.icon ?? null,
+    iconUrl: raw.icon ?? raw.image ?? null,
+    resolutionSource: raw.resolutionSource ?? "",
     eventId,
     eventSlug,
     eventTitle,
@@ -197,7 +248,10 @@ function buildListQuery(filters: GetMarketsFilters): string {
   if (filters.ascending !== undefined) params.set("ascending", String(filters.ascending));
   if (filters.limit !== undefined) params.set("limit", String(filters.limit));
   if (filters.offset !== undefined) params.set("offset", String(filters.offset));
-  return params.toString() ? `?${params.toString()}` : "";
+  // Always request tag joins — the cards' category pills + filter UI rely
+  // on this. Costs ~5% extra payload but no extra round-trip.
+  params.set("include_tag", "true");
+  return `?${params.toString()}`;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -218,7 +272,7 @@ export async function getMarkets(
   const query = buildListQuery({
     active: true,
     closed: false,
-    limit: 50,
+    limit: 100,
     order: "volume24hr",
     ascending: false,
     ...filters,
@@ -226,6 +280,9 @@ export async function getMarkets(
   const result = await gammaFetch<GammaMarketRaw[]>(`/markets${query}`, REVALIDATE_LIST);
 
   if (!result.ok) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn(`[polymarket] degraded /markets — ${result.error.kind}: ${result.error.message}`);
+    }
     return {ok: false, data: [], error: result.error};
   }
   if (!Array.isArray(result.data)) {
@@ -238,15 +295,23 @@ export async function getMarkets(
   let normalized = result.data.map(normalizeMarket).filter((m): m is PolymarketMarket => m !== null);
   if (filters.category) {
     const target = filters.category.toLowerCase();
-    normalized = normalized.filter((m) => (m.category ?? "").toLowerCase() === target);
+    normalized = normalized.filter(
+      (m) =>
+        (m.category ?? "").toLowerCase() === target || m.tags.some((t) => t.label.toLowerCase() === target),
+    );
   }
   return {ok: true, data: normalized};
 }
 
 /** Fetch a single Polymarket market by numeric id. */
 export async function getMarketById(id: string): Promise<PolymarketResult<PolymarketMarket | null>> {
-  const result = await gammaFetch<GammaMarketRaw>(`/markets/${id}`, REVALIDATE_SINGLE);
-  if (!result.ok) return {ok: false, data: null, error: result.error};
+  const result = await gammaFetch<GammaMarketRaw>(`/markets/${id}?include_tag=true`, REVALIDATE_SINGLE);
+  if (!result.ok) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn(`[polymarket] degraded /markets/${id} — ${result.error.kind}: ${result.error.message}`);
+    }
+    return {ok: false, data: null, error: result.error};
+  }
   if (!result.data) {
     return {ok: false, data: null, error: {kind: "404", status: 404, message: `Market ${id} not found`}};
   }
@@ -270,7 +335,7 @@ export async function getMarketById(id: string): Promise<PolymarketResult<Polyma
  */
 export async function getMarketBySlug(slug: string): Promise<PolymarketResult<PolymarketMarket | null>> {
   const result = await gammaFetch<GammaMarketRaw[]>(
-    `/markets?slug=${encodeURIComponent(slug)}`,
+    `/markets?slug=${encodeURIComponent(slug)}&include_tag=true`,
     REVALIDATE_SINGLE,
   );
   if (!result.ok) return {ok: false, data: null, error: result.error};

@@ -30,4 +30,5 @@ export type {
   PolymarketMarketId,
   PolymarketOutcome,
   PolymarketResult,
+  PolymarketTag,
 } from "./types";

@@ -1,6 +1,7 @@
 /* ============================================================
    /markets/[id] — single-market detail page styles.
    ============================================================ */
+@import "../primitives/primitives.css";
 
 .md-layout {
   display: flex;
@@ -97,6 +98,25 @@
   color: var(--fg-muted);
   margin: 0 0 16px;
 }
+/* PRD §7.5 odds bar — 8px tall split, accent colors only, no embedded
+   labels. Sits above the outcome rows; the percentages live in the rows. */
+.md-odds-bar {
+  display: flex;
+  height: 8px;
+  border: 1px solid var(--hairline-strong);
+  margin-bottom: 16px;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+.md-odds-bar-yes {
+  background: var(--accent-yes, #1f5c3d);
+  transition: flex 240ms ease-out;
+}
+.md-odds-bar-no {
+  background: var(--accent-no, #7a1f1f);
+  transition: flex 240ms ease-out;
+}
+
 .md-outcomes-list {
   display: flex;
   flex-direction: column;

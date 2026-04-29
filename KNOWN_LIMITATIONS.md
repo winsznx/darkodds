@@ -71,6 +71,21 @@ market, so the upgrade is UI-only.
 
 ---
 
+## Polymarket single-market endpoint omits the `events` join (polish-all)
+
+Gamma's `GET /markets/{id}` returns the market object **without** its
+`events` array, even though the list endpoint (`GET /markets?...`)
+includes it. Consequence: `getMarketById()` always returns
+`eventId/eventSlug/eventTitle` as `null`. The `/create` clone flow
+currently shows market context but not parent-event context. Workaround
+is a re-fetch via `getMarkets({slug: ...})` (which goes through the list
+endpoint and includes the join) — deferred to v1.1 polish so we don't
+re-architect the clone flow under the submission deadline. See
+[docs/POLYMARKET_INTEGRATION.md](./docs/POLYMARKET_INTEGRATION.md) quirk
+#8 for the exact wire-shape evidence.
+
+---
+
 ## Faucet rate limit: 1,000 tUSDC per 6h per address (F7)
 
 `Faucet.claim()` dispenses exactly 1,000 TestUSDC and locks the caller for 6
@@ -490,3 +505,15 @@ the dashboard topbar carries a "GOVERNANCE STATE" badge that reads
 `owner()` on every page load and renders DEMO MODE (amber) or PRODUCTION
 MODE (green) with a click-through explaining the current state and the
 restoration plan.
+
+---
+
+## v1 deferred / roadmap
+
+### Claim flow regression coverage
+
+`verify-f10b` validates contract state and API surface but does not exercise
+the full `placeBet → resolve → claim → attestation → verify` lifecycle. A
+claim-flow verifier (`tools/verify-claim-flow.ts`) is roadmapped to catch
+regressions like the F10b seed-script breakage (see DRIFT_LOG 2026-04-29).
+Tracked for v1.1.

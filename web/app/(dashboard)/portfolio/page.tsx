@@ -13,6 +13,16 @@ import {PositionRow} from "@/components/portfolio/PositionRow";
 import {getPortfolio, type PortfolioPosition} from "@/lib/darkodds/portfolio";
 import {type ClaimParams} from "@/lib/claim/state-machine";
 
+/// Stub params used by the dev-only `?preview-claim-queue=1` toggle. Targets
+/// the placeholder Market.sol address so any unintended runClaim attempt
+/// would simply fail rather than touching a real market.
+const PREVIEW_PARAMS: ClaimParams = {
+  kind: "claim",
+  marketId: BigInt(1),
+  marketAddress: "0x0000000000000000000000000000000000000001",
+  side: "YES",
+};
+
 /**
  * /portfolio — wallet-gated list of every market the connected user has
  * a non-zero bet handle on. Per row: decrypted stake, state badge, action
@@ -36,6 +46,29 @@ export default function PortfolioPage(): React.ReactElement {
   const [claimParams, setClaimParams] = useState<ClaimParams | null>(null);
 
   const userAddress = user?.wallet?.address as Address | undefined;
+
+  // Dev-only ClaimQueue preview. `?preview-claim-queue=1` opens the modal
+  // frozen at the submitting phase with stub params so the ClaimQueue
+  // strip is visible without needing a real claimable position. Mirrors
+  // the existing ?force-pm-error=1 dev toggle on /markets. The literal
+  // `process.env.NODE_ENV` check is statically replaced by the bundler, so
+  // production builds dead-code-elim the entire branch. Reads
+  // `window.location.search` directly inside an effect rather than
+  // useSearchParams() to keep /portfolio prerenderable without a Suspense
+  // boundary.
+  const [previewClaimQueue, setPreviewClaimQueue] = useState(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("preview-claim-queue") !== "1") return;
+    const t = setTimeout(() => {
+      setPreviewClaimQueue(true);
+      setClaimParams(PREVIEW_PARAMS);
+      setClaimModalOpen(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   // F9 MarketDetail pattern: defer all sync setState into a setTimeout so
   // React 19's set-state-in-effect lint doesn't fire. The actual async work
@@ -153,6 +186,7 @@ export default function PortfolioPage(): React.ReactElement {
         params={claimParams}
         onClose={() => setClaimModalOpen(false)}
         onSettled={onSettled}
+        preview={previewClaimQueue}
       />
     </>
   );

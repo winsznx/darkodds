@@ -34,6 +34,19 @@ export const metadata: Metadata = {
     description:
       "Public market. Private wager. Permissionless creation. Built on iExec Nox + Arbitrum. Selective-disclosure attestations.",
     locale: "en_US",
+    // Explicit images so non-root routes inherit the OG fallback. Next.js
+    // file-convention OG images (app/opengraph-image.tsx) only attach to
+    // the segment that owns the file, not child segments. Per-market
+    // OG (/markets/[id]/opengraph-image.tsx) overrides this fallback.
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "DarkOdds — Privacy Permissionless Prediction Markets",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -42,6 +55,7 @@ export const metadata: Metadata = {
     title: "DarkOdds — Privacy Permissionless Prediction Markets",
     description:
       "Public market. Private wager. Permissionless creation. Built on iExec Nox + Arbitrum. Selective-disclosure attestations.",
+    images: ["/opengraph-image"],
   },
   robots: {index: true, follow: true},
 };

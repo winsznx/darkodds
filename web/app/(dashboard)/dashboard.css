@@ -722,6 +722,45 @@
   }
 }
 
+/* Narrow phones — icon-only action buttons + drop operator-tier badge so the
+   primary CTA (CONNECT / wallet) keeps its room. The label is preserved as
+   aria-label on each button so screen readers still announce the action. */
+@media (max-width: 480px) {
+  .topbar {
+    padding: 12px 12px;
+    gap: 8px;
+  }
+  .topbar-left {
+    gap: 10px;
+    min-width: 0;
+  }
+  .topbar-brand em {
+    display: none;
+  }
+  .topbar-right {
+    gap: 8px;
+  }
+  .topbar-right .gov-badge,
+  .topbar-right .theme-toggle {
+    display: none;
+  }
+  .topbar-right .wallet-btn {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .topbar-right .wallet-btn .btn-lbl {
+    display: none;
+  }
+  /* Connected state — keep the truncated address visible since it's the
+     wallet's identity affordance, not a label. The .wallet-wrap parent is
+     present only on the dropdown trigger, never on FAUCET or CONNECT. */
+  .topbar-right .wallet-wrap .wallet-btn .btn-lbl {
+    display: inline;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+}
+
 /* ============================================================
    ROUTE PAGE PRIMITIVES (header + body)
    ============================================================ */

@@ -8,9 +8,9 @@ interface FaucetButtonProps {
 
 export function FaucetButton({onOpen}: FaucetButtonProps): React.ReactElement {
   return (
-    <button type="button" className="wallet-btn" onClick={onOpen}>
+    <button type="button" className="wallet-btn" onClick={onOpen} aria-label="Open faucet">
       <Droplet size={12} />
-      FAUCET
+      <span className="btn-lbl">FAUCET</span>
     </button>
   );
 }

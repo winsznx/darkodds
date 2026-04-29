@@ -351,6 +351,9 @@
   .landing-header .left span:not(.brand):not(:first-child) {
     display: none;
   }
+  .landing-header .right span {
+    display: none;
+  }
 }
 
 /* ============================================================

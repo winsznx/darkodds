@@ -49,18 +49,28 @@ export function WalletButton(): React.ReactElement {
 
   if (!authenticated) {
     return (
-      <button type="button" className="wallet-btn wallet-btn--primary" onClick={login}>
+      <button
+        type="button"
+        className="wallet-btn wallet-btn--primary"
+        onClick={login}
+        aria-label="Connect wallet"
+      >
         <Wallet size={12} />
-        CONNECT
+        <span className="btn-lbl">CONNECT</span>
       </button>
     );
   }
 
   return (
     <div className="wallet-wrap" ref={wrapRef}>
-      <button type="button" className="wallet-btn" onClick={() => setOpen((v) => !v)}>
+      <button
+        type="button"
+        className="wallet-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Open wallet menu"
+      >
         <Wallet size={12} />
-        {shortAddr(address)}
+        <span className="btn-lbl">{shortAddr(address)}</span>
       </button>
       {open && address && (
         <WalletMenu

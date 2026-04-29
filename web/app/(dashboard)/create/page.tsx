@@ -328,6 +328,7 @@ function CreateInner(): React.ReactElement {
   const txSuccessUI = deploy.phase === "success";
 
   const canDeploy =
+    isConnected &&
     params !== null &&
     question.trim().length > 0 &&
     criteria.trim().length > 0 &&
@@ -346,6 +347,18 @@ function CreateInner(): React.ReactElement {
       </header>
 
       <section className="create-body">
+        {!isConnected && (
+          <div className="create-mirror-banner" role="status">
+            <span className="stamp stamp--red" style={{transform: "rotate(-1deg)"}}>
+              CONNECT WALLET TO CREATE
+            </span>
+            <p className="mirror-question">
+              Markets are created on-chain by your connected wallet. The MINE filter on <em>/markets</em>{" "}
+              reads the creator address — without a wallet, generated markets can&rsquo;t be linked back to
+              you. Use the <strong>CONNECT</strong> button in the topbar to continue.
+            </p>
+          </div>
+        )}
         {polymarketSourceId && (
           <div className="create-mirror-banner">
             <span className="stamp stamp--red" style={{transform: "rotate(-1deg)"}}>
@@ -389,7 +402,8 @@ function CreateInner(): React.ReactElement {
               type="button"
               className="create-cta"
               onClick={() => void handleGenerate()}
-              disabled={!prompt.trim() || generating}
+              disabled={!prompt.trim() || generating || !isConnected}
+              title={!isConnected ? "Connect a wallet to generate a market" : undefined}
             >
               <Cpu size={12} />
               GENERATE WITH CHAINGPT
@@ -400,6 +414,7 @@ function CreateInner(): React.ReactElement {
                 Calling ChainGPT…
               </span>
             )}
+            {!isConnected && !generating && <span className="create-generating">Connect wallet first</span>}
           </div>
           {generateError && (
             <p className="create-error">

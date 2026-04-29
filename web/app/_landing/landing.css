@@ -345,6 +345,13 @@
   .illo {
     min-height: 420px;
   }
+  /* The 01/09 page-no overlay sits at the bottom-right of the protocol
+     diagram. On phones the SVG scales down enough that its bottom-row
+     labels (DARKODDS) crash into the page-no — hide it cleanly. */
+  .illo .page-no,
+  .illo .fig-label {
+    display: none;
+  }
   .landing-header {
     padding: 10px 24px;
   }

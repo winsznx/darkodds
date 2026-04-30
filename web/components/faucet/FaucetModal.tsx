@@ -566,6 +566,7 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
   const {wallets} = useWallets();
   const wallet = wallets[0];
   const [status, setStatus] = useState<"idle" | "adding" | "added" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Privy embedded wallets don't surface a token-list UI, so the call
   // would no-op or error. Hide the button cleanly for that path.
@@ -573,6 +574,7 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
 
   const handleAdd = async (): Promise<void> => {
     setStatus("adding");
+    setErrorMsg(null);
     try {
       const provider = await wallet.getEthereumProvider();
       // Privy's `provider.request` types `params` as `any[]` (legacy
@@ -580,7 +582,7 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
       // (MetaMask / Rabby / etc.) expects the object form per the current
       // spec. Cast through a permissive request signature for this call.
       const watchRequest = provider.request as (args: {method: string; params: unknown}) => Promise<unknown>;
-      await watchRequest({
+      const result = await watchRequest({
         method: "wallet_watchAsset",
         params: {
           type: "ERC20",
@@ -591,20 +593,34 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
           },
         },
       });
-      setStatus("added");
-      setTimeout(() => setStatus("idle"), 2400);
-    } catch {
-      // User rejected, wallet doesn't support EIP-747, or token already
-      // added. Surface a brief label so the click registers visibly.
+      // Some wallets return `false` instead of throwing when the user
+      // rejects. Treat falsy result as a rejection.
+      if (result === false) {
+        setStatus("error");
+        setErrorMsg("Rejected by wallet");
+      } else {
+        setStatus("added");
+      }
+      setTimeout(() => {
+        setStatus("idle");
+        setErrorMsg(null);
+      }, 3500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[wallet_watchAsset] failed:", err);
       setStatus("error");
-      setTimeout(() => setStatus("idle"), 2400);
+      setErrorMsg(msg.length > 80 ? `${msg.slice(0, 80)}…` : msg);
+      setTimeout(() => {
+        setStatus("idle");
+        setErrorMsg(null);
+      }, 5000);
     }
   };
 
   let label = "ADD tUSDC TO WALLET ↗";
   if (status === "adding") label = "WAITING FOR WALLET…";
   else if (status === "added") label = "✓ ADDED TO WALLET";
-  else if (status === "error") label = "WALLET REJECTED — RETRY";
+  else if (status === "error") label = errorMsg ? `✗ ${errorMsg}` : "✗ FAILED — RETRY";
 
   return (
     <button
@@ -613,6 +629,7 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
       onClick={() => void handleAdd()}
       disabled={status === "adding" || status === "added"}
       data-status={status}
+      title={errorMsg ?? undefined}
     >
       {label}
     </button>

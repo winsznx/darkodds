@@ -43,45 +43,45 @@ The verifier output transcript at `verification-output/claim-flow-{stamp}/transc
 ```mermaid
 graph TB
     subgraph Browser["Browser / wallet"]
-        UI[Next.js 16 dashboard<br/>/markets, /portfolio,<br/>/audit, /create]
-        Privy[Privy embedded wallet<br/>+ wagmi v4]
+        UI["Next.js 16 dashboard<br/>/markets, /portfolio,<br/>/audit, /create"]
+        Privy["Privy embedded wallet<br/>+ wagmi v4"]
     end
 
     subgraph Vercel["Next.js API routes (Vercel)"]
-        DEPLOY[/api/admin/deploy-market<br/>sponsored createMarket<br/>+ Safe-cosigned setAdapter/]
-        AIRDROP[/api/airdrop/gas<br/>0.005 ETH grants<br/>address-once + IP-rate-limited/]
-        CHAINGPT[/api/chaingpt/generate-market<br/>natural-language → market params/]
-        ATTEST[/api/attestation/generate<br/>EIP-191 selective-disclosure receipt/]
-        POLY[/api/polymarket/*<br/>read-only Gamma mirror/]
-        CREATED_BY[/api/markets/created-by/[address]<br/>MINE filter ledger/]
+        DEPLOY["/api/admin/deploy-market<br/>sponsored createMarket<br/>+ Safe-cosigned setAdapter"]
+        AIRDROP["/api/airdrop/gas<br/>0.005 ETH grants<br/>address-once + IP-rate-limited"]
+        CHAINGPT["/api/chaingpt/generate-market<br/>natural-language &rarr; market params"]
+        ATTEST["/api/attestation/generate<br/>EIP-191 selective-disclosure receipt"]
+        POLY["/api/polymarket/*<br/>read-only Gamma mirror"]
+        CREATED_BY["/api/markets/created-by/&#91;address&#93;<br/>MINE filter ledger"]
     end
 
     subgraph ArbSepolia["Arbitrum Sepolia (chainId 421614)"]
-        REG[MarketRegistry<br/>EOA-owned for /create]
-        IMPL[MarketImplementation v5<br/>clone target]
-        MARKET[Market clones<br/>Open → Closed → Resolving<br/>→ ClaimWindow → Settled]
-        CUSDC[ConfidentialUSDC<br/>ERC-7984 wrapper]
-        TUSDC[TestUSDC<br/>ERC-20 + Permit]
+        REG["MarketRegistry<br/>EOA-owned for /create"]
+        IMPL["MarketImplementation v5<br/>clone target"]
+        MARKET["Market clones<br/>Open &rarr; Closed &rarr; Resolving<br/>&rarr; ClaimWindow &rarr; Settled"]
+        CUSDC["ConfidentialUSDC<br/>ERC-7984 wrapper"]
+        TUSDC["TestUSDC<br/>ERC-20 + Permit"]
 
-        RESOLVE[ResolutionOracle<br/>per-market adapter routing]
-        ADMIN[AdminOracle<br/>commit-reveal + 60s delay]
-        PRE[PreResolvedOracle<br/>fixed-outcome demo path]
-        CHAINLINK[ChainlinkPriceOracle<br/>mainnet-ready]
+        RESOLVE["ResolutionOracle<br/>per-market adapter routing"]
+        ADMIN["AdminOracle<br/>commit-reveal + 60s delay"]
+        PRE["PreResolvedOracle<br/>fixed-outcome demo path"]
+        CHAINLINK["ChainlinkPriceOracle<br/>mainnet-ready"]
 
-        VERIFIER[ClaimVerifier<br/>EIP-191 attestation gate]
-        FEE[FeeVault<br/>2% protocol fee handles]
-        FAUCET[Faucet<br/>1k tUSDC / 6h]
-        SAFE[Gnosis Safe v1.4.1<br/>2-of-3, governs 7 contracts]
+        VERIFIER["ClaimVerifier<br/>EIP-191 attestation gate"]
+        FEE["FeeVault<br/>2% protocol fee handles"]
+        FAUCET["Faucet<br/>1k tUSDC / 6h"]
+        SAFE["Gnosis Safe v1.4.1<br/>2-of-3, governs 7 contracts"]
     end
 
     subgraph IExec["iExec Nox (Intel TDX)"]
-        NOX[Nox protocol contract<br/>0xd464…c229]
-        RUNNER[TDX Runner<br/>fixed Rust service<br/>processes encrypted ops]
+        NOX["Nox protocol contract<br/>0xd464&hellip;c229"]
+        RUNNER["TDX Runner<br/>fixed Rust service<br/>processes encrypted ops"]
     end
 
     subgraph External["External read-only sources"]
-        GAMMA[Polymarket Gamma API<br/>display-only mirror]
-        CG[ChainGPT GeneralChat<br/>+ Smart Contract Auditor]
+        GAMMA["Polymarket Gamma API<br/>display-only mirror"]
+        CG["ChainGPT GeneralChat<br/>+ Smart Contract Auditor"]
     end
 
     UI -->|wagmi tx| MARKET
@@ -121,7 +121,7 @@ graph TB
     SAFE -.->|owns 7| FEE
     SAFE -.->|owns 7| FAUCET
 
-    MARKET -->|encryptInput / fromExternal<br/>add / mul / div / publicDecrypt| NOX
+    MARKET -->|"encryptInput / fromExternal<br/>add / mul / div / publicDecrypt"| NOX
     CUSDC -->|encrypted handles| NOX
     NOX -->|TDX compute| RUNNER
 

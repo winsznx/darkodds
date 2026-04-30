@@ -927,3 +927,18 @@ Permissionless rails let markets survive globally and keep innovating even when 
 - **Confidentiality is orthogonal to permissions** — anyone can deploy any market, and bet sizes stay encrypted via iExec Nox regardless. That's the actual product wedge: the long tail of permissionless markets, with private wagers.
 
 The duopoly of crypto-native permissionless (Polymarket-leaning) and regulated centralized (Kalshi) is already pushing both sides to improve. DarkOdds is choosing the permissionless lane and adding selective disclosure on top — the pieces neither side has.
+
+---
+
+## Why we built our own ERC-7984 instead of integrating cdefi.iex.ec
+
+iExec ships a Confidential Token product at [`cdefi.iex.ec`](https://cdefi.iex.ec/) — a wrapper that turns any ERC-20 into a confidential ERC-7984 on Arbitrum, with the same masked-balance + click-to-decrypt UX patterns Orlando documented in #vibe-coding-questions. It is the "best case" path Mathis described in Discord on April 30: integrate against the deployed Confidential Token directly.
+
+We built `ConfidentialUSDC` natively against `@iexec-nox/nox-protocol-contracts` instead, for two reasons specific to our use case:
+
+1. **Operator-pattern integration with `Market.sol`.** Each `Market` clone needs to pull encrypted bet handles from bettors via `confidentialTransferFrom` after a one-time `setOperator` approval. Wiring this against a wrapper we don't own would have meant teaching an external wrapper about our market's pull semantics or layering a custom intermediary on top. Owning the cUSDC contract let us implement the operator pattern as a first-class ERC-7984 surface that `Market` clones can call directly, and let us audit the silent-failure capture (the `transferred = ...confidentialTransferFrom(...)` return-value pattern from F4.5 hardening) end-to-end.
+2. **Direct `Nox.mul / div / sub` on cUSDC handles in `claimWinnings`.** The proportional pari-mutuel payout (`payout = userBet × totalPool / winningSide − fee`) runs as a sequence of Nox arithmetic ops on the cUSDC handle the contract is holding. After computing the encrypted payout, we grant it to the winner via `Nox.allow(payoutHandle, msg.sender)` and emit it in `ClaimSettled` for the winner's `nox.decrypt` call. This depends on having the encrypted balance handle in the same contract storage we control. A wrapper-based approach would have added an extra hop and made the ACL grant pattern less direct.
+
+The UX patterns we ship align directly with Orlando's recommendations from earlier this week — masked redaction bars (matches the `* * * *` approach he described), a dedicated REVEAL button for click-to-decrypt (the gold standard he documented), temporary React state for decrypted values with no localStorage caching (per his XSS-avoidance advice). We arrived at these independently before that thread; cross-validating against iExec's own published guidance was reassuring confirmation.
+
+Mathis's summary on April 30 — _"the best case is to use the Confidential Token, but if you don't use it and your use case is about DeFi / RWA, it's good too"_ — explicitly green-lights this path for prediction markets. We document the tradeoff here so judges can compare DarkOdds's confidential-token surface against `cdefi.iex.ec`'s reference implementation directly.

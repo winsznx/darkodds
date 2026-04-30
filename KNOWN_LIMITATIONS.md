@@ -575,3 +575,63 @@ Browser-side localStorage at `darkodds.created-markets` is the fast path
 for the MINE filter (instant flag, no network roundtrip) but only on the
 device the deploy happened on. The server ledger is the authoritative
 path that survives clears + device switches.
+
+## Why cUSDC balance shows zero in external wallets (MetaMask, Rabby)
+
+When a user imports `ConfidentialUSDC` (`0xaf1ac…50c4d`) into MetaMask or any
+other ERC-20-aware wallet via "Import Token", the wallet renders the balance
+as `0` regardless of the user's actual position. This is correct behavior on
+both sides:
+
+- **The wallet is right.** MetaMask calls `balanceOf(address)` (ERC-20) which
+  is not present on ERC-7984. Even if the wallet were to call the
+  ERC-7984 surface, the return value is an encrypted `euint256` handle, not a
+  plaintext uint. The wallet has no way to decrypt it (no key, no Nox SDK).
+- **Our contract is right.** The plaintext balance of any user is intentionally
+  not on chain. It exists only as a Nox handle that the user (and only the
+  user) can decrypt via `nox.decrypt(handle)` against `@iexec-nox/handle`.
+
+This is the privacy property we ship — the balance is **not** publicly
+inspectable. External wallets reading via `balanceOf` get zero by design;
+they're not running the Nox SDK.
+
+### How users see their actual cUSDC balance
+
+In-app: the dashboard's wallet pill renders the decrypted balance after the
+user clicks the REVEAL button (Orlando's "click-to-decrypt" UX gold standard
+from #vibe-coding-questions, 2026-04-23). The plaintext lives in temporary
+React state and clears on refresh — no localStorage, no IndexedDB, no
+persistent cache. Per Orlando: _"never in persistent storage like localStorage
+to avoid XSS vulnerabilities."_
+
+External wallets: there is no way today. ERC-7984 doesn't yet have a wallet
+discovery / decryption protocol comparable to the EIP-1193 + ERC-20 token
+detection flow. A future version of MetaMask or Rabby with native ERC-7984
+support could bind the user's wallet key to a Nox decrypt round-trip, but
+that's protocol-level work outside DarkOdds's scope.
+
+### What this means for the demo
+
+- The Privy embedded-wallet path (Account 2 in the demo) never sees this gap
+  — there is no external wallet UI to confuse the user.
+- The MetaMask EOA path (Account 1, the deployer) sees `0` for cUSDC and a
+  manually-imported `TestUSDC` shows the actual ERC-20 balance correctly.
+  The deployer reads cUSDC balance through the in-app REVEAL button.
+- Judges who connect their own MetaMask after the demo and import cUSDC
+  expecting to see a number: this section is the answer they find.
+
+### Peer-to-peer cUSDC transfer (out of scope for v1 UI)
+
+`ConfidentialUSDC.confidentialTransfer(to, handle)` exists on the contract
+and works — the protocol surface is complete. The web UI doesn't expose a
+"send cUSDC to address" flow because the v1 product surface is bet → claim
+→ attest, not a wallet/transfer app. A user who wants to move cUSDC peer-to-
+peer can call the contract directly via Etherscan or a custom script. The
+unwrap path (cUSDC → TestUSDC) is exposed in-app and lets users exit to a
+standard ERC-20 they can transfer normally.
+
+A future "/wallet" route adding peer-to-peer cUSDC send + a richer balance
+view is roadmapped for v1.1. Not a hackathon blocker — Mathis's April 30
+guidance covers our surface (encryptInput + on-chain handles + TEE
+settlement) as correct Nox usage regardless of whether a transfer-out UI
+ships.

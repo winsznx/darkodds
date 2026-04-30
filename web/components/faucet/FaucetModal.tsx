@@ -540,7 +540,58 @@ function FaucetUsdcStep({address}: AddressedStepProps): React.ReactElement {
           {tusdcBal.data !== undefined ? Number(formatUnits(tusdcBal.data as bigint, 6)).toFixed(2) : "—"}
         </span>
       </div>
+
+      <AddTestUsdcToWallet />
     </div>
+  );
+}
+
+/**
+ * EIP-747 wallet_watchAsset button — registers TestUSDC in the connected
+ * wallet's token list (MetaMask, Rabby, etc.) so users see their tUSDC
+ * balance natively. cUSDC is intentionally NOT added — its balance is an
+ * encrypted Nox handle that wallets render as 0, which is misleading.
+ * See KNOWN_LIMITATIONS.md → "Why cUSDC balance shows zero in external
+ * wallets" for the full reasoning.
+ */
+function AddTestUsdcToWallet(): React.ReactElement | null {
+  const [added, setAdded] = useState(false);
+
+  const provider =
+    typeof window !== "undefined"
+      ? (
+          window as Window & {
+            ethereum?: {request: (args: {method: string; params: unknown}) => Promise<unknown>};
+          }
+        ).ethereum
+      : undefined;
+
+  if (!provider) return null;
+
+  const handleAdd = async (): Promise<void> => {
+    try {
+      await provider.request({
+        method: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address: addresses.TestUSDC,
+            symbol: "tUSDC",
+            decimals: 6,
+          },
+        },
+      });
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    } catch {
+      // User rejected the prompt or wallet doesn't support EIP-747; no-op.
+    }
+  };
+
+  return (
+    <button type="button" className="modal-watch-asset" onClick={() => void handleAdd()} disabled={added}>
+      {added ? "✓ ADDED TO WALLET" : "ADD tUSDC TO WALLET ↗"}
+    </button>
   );
 }
 

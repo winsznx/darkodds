@@ -975,6 +975,37 @@
   border-top: 1px solid var(--hairline);
 }
 
+/* "Add tUSDC to wallet" — EIP-747 wallet_watchAsset trigger inside the
+   FaucetUsdcStep. Tertiary action: smaller weight than .modal-cta, sits
+   below the balance row, hidden entirely when no injected provider is
+   present (Privy embedded wallets). */
+.modal-watch-asset {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px dashed var(--hairline-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.modal-watch-asset:hover:not(:disabled) {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+.modal-watch-asset:disabled {
+  cursor: default;
+  color: var(--accent-yes, #1f5c3d);
+  border-style: solid;
+  border-color: var(--accent-yes, #1f5c3d);
+}
+
 /* Inline success / error blocks inside a modal-step (FaucetGasAirdropStep
    surfaces these for the airdrop request lifecycle). */
 .modal-step-success {

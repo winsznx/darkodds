@@ -41,120 +41,52 @@ The verifier output transcript at `verification-output/claim-flow-{stamp}/transc
 ## Topology
 
 ```mermaid
-%%{init: {
-  "theme": "base",
-  "themeVariables": {
-    "primaryColor": "#ffffff",
-    "primaryTextColor": "#0a0a0a",
-    "primaryBorderColor": "#0a0a0a",
-    "lineColor": "#0a0a0a",
-    "secondaryColor": "#ffffff",
-    "tertiaryColor": "#ffffff",
-    "clusterBkg": "#f7f3ea",
-    "clusterBorder": "#0a0a0a",
-    "fontFamily": "ui-monospace, SFMono-Regular, Menlo, monospace",
-    "fontSize": "14px"
-  },
-  "flowchart": {
-    "curve": "basis",
-    "nodeSpacing": 28,
-    "rankSpacing": 60,
-    "padding": 16
-  }
-}}%%
-flowchart TB
-    subgraph Browser["BROWSER / WALLET"]
-        UI["Next.js dashboard"]
-        Privy["Privy embedded wallet"]
-    end
+flowchart LR
+    User(["User"]) --> UI["Next.js dashboard"]
+    UI --> Privy["Privy embedded wallet"]
 
-    subgraph Vercel["NEXT.JS API ROUTES (Vercel)"]
-        direction TB
-        DEPLOY["/api/admin/deploy-market"]
-        AIRDROP["/api/airdrop/gas"]
-        CHAINGPT["/api/chaingpt/generate-market"]
-        ATTEST["/api/attestation/generate"]
-        POLY["/api/polymarket/*"]
-        CREATED_BY["/api/markets/created-by"]
-    end
+    UI -- "fetch" --> DEPLOY["/api/admin/deploy-market"]
+    UI -- "fetch" --> AIRDROP["/api/airdrop/gas"]
+    UI -- "fetch" --> CHAINGPT["/api/chaingpt/generate-market"]
+    UI -- "fetch" --> ATTEST["/api/attestation/generate"]
+    UI -- "fetch" --> POLY["/api/polymarket/*"]
+    UI -- "fetch" --> CREATED_BY["/api/markets/created-by"]
 
-    subgraph ArbSepolia["ARBITRUM SEPOLIA (chainId 421614)"]
-        direction TB
-        REG["MarketRegistry"]
-        IMPL["MarketImplementation v5"]
-        MARKET["Market clones<br/>Open → Closed → Resolving<br/>→ ClaimWindow → Settled"]
-        CUSDC["ConfidentialUSDC<br/>(ERC-7984)"]
-        TUSDC["TestUSDC<br/>(ERC-20 + Permit)"]
-        RESOLVE["ResolutionOracle"]
-        ADMIN["AdminOracle<br/>commit-reveal"]
-        PRE["PreResolvedOracle"]
-        CHAINLINK["ChainlinkPriceOracle"]
-        VERIFIER["ClaimVerifier<br/>EIP-191"]
-        FEE["FeeVault<br/>2% fee"]
-        FAUCET["Faucet<br/>1k tUSDC / 6h"]
-        SAFE["Gnosis Safe<br/>2-of-3 v1.4.1"]
-    end
+    Privy -- "wagmi tx" --> MARKET["Market clones<br/>Open → Closed → Resolving<br/>→ ClaimWindow → Settled"]
+    Privy -- "wagmi tx" --> CUSDC["ConfidentialUSDC<br/>ERC-7984"]
+    Privy -- "wagmi tx" --> FAUCET["Faucet<br/>1k tUSDC / 6h"]
+    Privy -- "decrypt handle" --> NOX["Nox protocol<br/>0xd464…c229"]
 
-    subgraph IExec["iEXEC NOX (Intel TDX)"]
-        NOX["Nox protocol<br/>0xd464…c229"]
-        RUNNER["TDX Runner<br/>encrypted ops"]
-    end
+    DEPLOY -- "createMarket" --> REG["MarketRegistry"]
+    DEPLOY -- "Safe cosign<br/>setAdapter" --> RESOLVE["ResolutionOracle"]
+    AIRDROP -- "0.005 ETH" --> Privy
+    CHAINGPT -. "HTTPS" .-> CG["ChainGPT GeneralChat"]
+    POLY -. "HTTPS" .-> GAMMA["Polymarket Gamma"]
+    ATTEST -- "EIP-191 sign" --> VERIFIER["ClaimVerifier"]
+    CREATED_BY -- "MINE filter ledger" --> KV[("Vercel KV<br/>or /tmp")]
 
-    subgraph External["READ-ONLY SOURCES"]
-        GAMMA["Polymarket Gamma"]
-        CG["ChainGPT"]
-    end
-
-    UI ==> Privy
-    UI -- "wagmi tx" --> MARKET
-    UI -- "wagmi tx" --> CUSDC
-    UI -- "wagmi tx" --> FAUCET
-
-    UI -. "fetch" .-> DEPLOY
-    UI -. "fetch" .-> AIRDROP
-    UI -. "fetch" .-> CHAINGPT
-    UI -. "fetch" .-> ATTEST
-    UI -. "fetch" .-> POLY
-    UI -. "fetch" .-> CREATED_BY
-
-    DEPLOY --> REG
-    DEPLOY -- "Safe cosign" --> RESOLVE
-    AIRDROP -- "EOA tx" --> MARKET
-    CHAINGPT -. "HTTPS" .-> CG
-    POLY -. "HTTPS" .-> GAMMA
-
-    REG --> IMPL
+    REG -- "EIP-1167 clone" --> IMPL["MarketImplementation v5"]
     REG --> MARKET
-    MARKET --> CUSDC
-    MARKET -- "fee handle" --> FEE
-    MARKET -- "reads" --> RESOLVE
-    RESOLVE --> ADMIN
-    RESOLVE --> PRE
-    RESOLVE --> CHAINLINK
-    CUSDC -- "wraps" --> TUSDC
+    MARKET -- "encrypted bet<br/>+ payout transfer" --> CUSDC
+    MARKET -- "fee handle" --> FEE["FeeVault<br/>2% fee"]
+    MARKET -- "resolve" --> RESOLVE
+    CUSDC -- "wraps" --> TUSDC["TestUSDC<br/>ERC-20 + Permit"]
 
-    SAFE -. "owns" .-> TUSDC
-    SAFE -. "owns" .-> RESOLVE
-    SAFE -. "owns" .-> ADMIN
-    SAFE -. "owns" .-> PRE
-    SAFE -. "owns" .-> CHAINLINK
-    SAFE -. "owns" .-> FEE
-    SAFE -. "owns" .-> FAUCET
+    RESOLVE -- "oracleType=0" --> ADMIN["AdminOracle<br/>commit-reveal + 60s"]
+    RESOLVE -- "oracleType=1" --> CHAINLINK["ChainlinkPriceOracle"]
+    RESOLVE -- "oracleType=2" --> PRE["PreResolvedOracle"]
+
+    SAFE["Gnosis Safe<br/>2-of-3 v1.4.1"] -. "owns 7" .-> TUSDC
+    SAFE -. "owns 7" .-> RESOLVE
+    SAFE -. "owns 7" .-> ADMIN
+    SAFE -. "owns 7" .-> PRE
+    SAFE -. "owns 7" .-> CHAINLINK
+    SAFE -. "owns 7" .-> FEE
+    SAFE -. "owns 7" .-> FAUCET
 
     MARKET -- "Nox.add / mul / div<br/>publicDecrypt" --> NOX
-    CUSDC -- "encrypted handles" --> NOX
-    NOX --> RUNNER
-    Privy -. "decrypt" .-> NOX
-
-    classDef onChain fill:#fff,stroke:#0a0a0a,stroke-width:1.5px,color:#0a0a0a
-    classDef offChain fill:#fff,stroke:#0a0a0a,stroke-width:1.5px,stroke-dasharray:4 3,color:#0a0a0a
-    classDef tee fill:#0a0a0a,stroke:#0a0a0a,stroke-width:1.5px,color:#ffffff
-    classDef external fill:#f7f3ea,stroke:#0a0a0a,stroke-width:1px,color:#0a0a0a
-
-    class REG,IMPL,MARKET,CUSDC,TUSDC,RESOLVE,ADMIN,PRE,CHAINLINK,VERIFIER,FEE,FAUCET,SAFE onChain
-    class UI,Privy,DEPLOY,AIRDROP,CHAINGPT,ATTEST,POLY,CREATED_BY offChain
-    class NOX,RUNNER tee
-    class GAMMA,CG external
+    CUSDC -- "encrypted balance" --> NOX
+    NOX -- "TDX compute" --> RUNNER["TDX Runner<br/>fixed Rust service"]
 ```
 
 `/api/admin/deploy-market` is the sponsored-deploy path: a connected wallet describes a market, the route Safe-cosigns `MarketRegistry.createMarket` + `ResolutionOracle.setAdapter` server-side, and the user gets a clickable market URL within ~30 seconds. Self-signed deploys (advanced operators with funded wallets) bypass the API entirely and call `MarketRegistry.createMarket` directly.

@@ -232,6 +232,31 @@ darkodds/
 
 ---
 
+## Scope of work
+
+DarkOdds was conceived and built end-to-end during the iExec Vibe Coding Challenge × ChainGPT hackathon period (April 2026). Every commit in this repository is from that window — see `git log` for the full timeline (`P0` through `F10b` plus the submission polish pass).
+
+**Authored during the hackathon:**
+
+- All eight Solidity contracts: `ConfidentialUSDC` (ERC-7984 native to Nox), `Market` (with on-chain proportional pari-mutuel payout via `Nox.mul / div / sub`), `MarketRegistry` (EIP-1167 clone factory), the three resolution adapters (`AdminOracle` / `ChainlinkPriceOracle` / `PreResolvedOracle`) routed through `ResolutionOracle`, `ClaimVerifier` (EIP-191 attestation gate), `FeeVault`, `Faucet`, `TestUSDC`
+- The entire Next.js 16 frontend (10 routes, 7 API routes, dashboard primitives, landing page, OG image generators)
+- The verifier suite (`verify:f10b` 24/24 + `verify:claim-flow` 21/21 = 45/45 end-to-end checks against live Arb Sepolia state)
+- All tooling: deploy scripts (`deploy:f2` through `deploy:f5fu`), smoke tests, `admin-resolve.ts` CLI, `seed-claimable-market.ts`, healthcheck, ChainGPT auditor integration
+- Brand, copy, illustrations, the case-file visual language, OG cards
+
+**Pre-existing components we integrate against (not authored here):**
+
+- The iExec Nox protocol contract at [`0xd464…c229`](https://sepolia.arbiscan.io/address/0xd464b198f06756a1d00be223634b85e0a731c229), operated by iExec — the TEE runtime our contracts call into
+- `@iexec-nox/handle@0.1.0-beta.10` — the client-side TypeScript SDK for `encryptInput` / `publicDecrypt` / `decrypt`
+- `@iexec-nox/nox-protocol-contracts` — the Solidity library that defines `Nox.add / mul / div / publicDecrypt` etc.
+- ChainGPT GeneralChat + Smart Contract Auditor APIs — used at runtime for `/create` market generation and in CI for contract review
+- Standard-issue dependencies: OpenZeppelin v5 (used as ERC-7984 reference), wagmi v4, viem v2, Privy v3.22, Next.js 16, Tailwind v4, Foundry, Gnosis Safe SDK
+- Polymarket Gamma read APIs (display-only mirror, no proxied trading)
+
+There is no fork of an existing project, no copy-pasted prediction-market codebase, no inherited frontend. The TEE-plaintext proportional payout (the technical wedge documented in `docs/ARCHITECTURE.md#verified-end-to-end`) is original protocol design — it solves the encrypted-by-encrypted division problem that pure-FHE prediction markets sidestep.
+
+---
+
 ## License
 
 MIT. See [`LICENSE`](./LICENSE) — the contracts and frontend are open for fork; the brand `DarkOdds`, the wordmark, and the case-file visual language are reserved.

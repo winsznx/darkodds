@@ -549,28 +549,38 @@ function FaucetUsdcStep({address}: AddressedStepProps): React.ReactElement {
 /**
  * EIP-747 wallet_watchAsset button — registers TestUSDC in the connected
  * wallet's token list (MetaMask, Rabby, etc.) so users see their tUSDC
- * balance natively. cUSDC is intentionally NOT added — its balance is an
- * encrypted Nox handle that wallets render as 0, which is misleading.
- * See KNOWN_LIMITATIONS.md → "Why cUSDC balance shows zero in external
+ * balance natively.
+ *
+ * Routes through Privy's `wallet.getEthereumProvider()` rather than raw
+ * `window.ethereum`. Multiple wallet extensions (Phantom, Rabby, MetaMask)
+ * all hook the same global and fight over it — that's where the
+ * `-32603 Internal error` "Port method error" came from. Privy resolves to
+ * the active connected wallet's provider deterministically.
+ *
+ * cUSDC is intentionally NOT added — its balance is an encrypted Nox
+ * handle that wallets render as 0, which is misleading. See
+ * KNOWN_LIMITATIONS.md → "Why cUSDC balance shows zero in external
  * wallets" for the full reasoning.
  */
 function AddTestUsdcToWallet(): React.ReactElement | null {
-  const [added, setAdded] = useState(false);
+  const {wallets} = useWallets();
+  const wallet = wallets[0];
+  const [status, setStatus] = useState<"idle" | "adding" | "added" | "error">("idle");
 
-  const provider =
-    typeof window !== "undefined"
-      ? (
-          window as Window & {
-            ethereum?: {request: (args: {method: string; params: unknown}) => Promise<unknown>};
-          }
-        ).ethereum
-      : undefined;
-
-  if (!provider) return null;
+  // Privy embedded wallets don't surface a token-list UI, so the call
+  // would no-op or error. Hide the button cleanly for that path.
+  if (!wallet || wallet.walletClientType === "privy") return null;
 
   const handleAdd = async (): Promise<void> => {
+    setStatus("adding");
     try {
-      await provider.request({
+      const provider = await wallet.getEthereumProvider();
+      // Privy's `provider.request` types `params` as `any[]` (legacy
+      // EIP-1193). EIP-747 wallet_watchAsset takes an object — every wallet
+      // (MetaMask / Rabby / etc.) expects the object form per the current
+      // spec. Cast through a permissive request signature for this call.
+      const watchRequest = provider.request as (args: {method: string; params: unknown}) => Promise<unknown>;
+      await watchRequest({
         method: "wallet_watchAsset",
         params: {
           type: "ERC20",
@@ -581,16 +591,30 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
           },
         },
       });
-      setAdded(true);
-      setTimeout(() => setAdded(false), 2000);
+      setStatus("added");
+      setTimeout(() => setStatus("idle"), 2400);
     } catch {
-      // User rejected the prompt or wallet doesn't support EIP-747; no-op.
+      // User rejected, wallet doesn't support EIP-747, or token already
+      // added. Surface a brief label so the click registers visibly.
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2400);
     }
   };
 
+  let label = "ADD tUSDC TO WALLET ↗";
+  if (status === "adding") label = "WAITING FOR WALLET…";
+  else if (status === "added") label = "✓ ADDED TO WALLET";
+  else if (status === "error") label = "WALLET REJECTED — RETRY";
+
   return (
-    <button type="button" className="modal-watch-asset" onClick={() => void handleAdd()} disabled={added}>
-      {added ? "✓ ADDED TO WALLET" : "ADD tUSDC TO WALLET ↗"}
+    <button
+      type="button"
+      className="modal-watch-asset"
+      onClick={() => void handleAdd()}
+      disabled={status === "adding" || status === "added"}
+      data-status={status}
+    >
+      {label}
     </button>
   );
 }

@@ -576,12 +576,27 @@ function AddTestUsdcToWallet(): React.ReactElement | null {
     setStatus("adding");
     setErrorMsg(null);
     try {
-      const provider = await wallet.getEthereumProvider();
-      // Privy's `provider.request` types `params` as `any[]` (legacy
-      // EIP-1193). EIP-747 wallet_watchAsset takes an object — every wallet
-      // (MetaMask / Rabby / etc.) expects the object form per the current
-      // spec. Cast through a permissive request signature for this call.
-      const watchRequest = provider.request as (args: {method: string; params: unknown}) => Promise<unknown>;
+      // Privy's getEthereumProvider() throws "Cannot read 'walletProvider'"
+      // for wallets that weren't fully wired through Privy's connector
+      // (some external wallets connected via wagmi's injected path land in
+      // this state). Fall back to window.ethereum which the connected
+      // wallet's extension hooks anyway.
+      type WatchRequest = (args: {method: string; params: unknown}) => Promise<unknown>;
+      let watchRequest: WatchRequest | null = null;
+      try {
+        const privyProvider = await wallet.getEthereumProvider();
+        watchRequest = privyProvider.request as WatchRequest;
+      } catch {
+        const ethGlobal = (
+          window as Window & {
+            ethereum?: {request: (args: {method: string; params: unknown}) => Promise<unknown>};
+          }
+        ).ethereum;
+        if (ethGlobal) watchRequest = ethGlobal.request.bind(ethGlobal);
+      }
+      if (!watchRequest) {
+        throw new Error("No wallet provider available — open this in MetaMask / Rabby");
+      }
       const result = await watchRequest({
         method: "wallet_watchAsset",
         params: {

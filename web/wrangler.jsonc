@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "darkodds",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "NEXT_PUBLIC_PRIVY_APP_ID": "cmogv5u8b02a50cl5vrs6aejr",
+    "NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL": "https://sepolia-rollup.arbitrum.io/rpc"
+  }
+}

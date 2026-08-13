@@ -54,7 +54,7 @@ export function Providers({children}: {children: React.ReactNode}): React.ReactE
           // 512×512 crest served by app/icon-512/route.ts. The path is
           // relative so it resolves against whichever origin the modal
           // mounts under (production darkodds.site, preview, or local).
-          logo: "/icon-512",
+          logo: "/icon-512.png",
           showWalletLoginFirst: false,
           walletChainType: "ethereum-only",
         },
